@@ -103,7 +103,10 @@ export default function BanHangPage() {
     }
   }
 
-  const categoryNames = [...new Set(products.map(p => p.category_name))]
+  // const categoryNames = [...new Set(products.map(p => p.category_name))]
+  const categoryNames = Array.from(
+  new Set(products.map(p => p.category_name))
+)
 
   return (
     <div className="flex h-screen overflow-hidden">

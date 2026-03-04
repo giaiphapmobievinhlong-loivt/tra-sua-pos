@@ -1,4 +1,4 @@
-import { SignJWT, jwtVerify } from 'jose'
+import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
 import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
 
@@ -6,7 +6,7 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'fallback-secret-change-in-production'
 )
 
-export interface UserPayload {
+export interface UserPayload extends JWTPayload {
   id: number
   username: string
   full_name: string
@@ -14,7 +14,7 @@ export interface UserPayload {
 }
 
 export async function signToken(payload: UserPayload): Promise<string> {
-  return await new SignJWT(payload as Record<string, unknown>)
+  return await new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime('7d')
     .sign(JWT_SECRET)

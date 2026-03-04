@@ -104,9 +104,12 @@ export async function GET() {
     `
 
     // Get category IDs
-    const cats = await sql`SELECT id, slug FROM categories`
-    const catMap: Record<string, number> = {}
-    cats.forEach((c: { slug: string; id: number }) => { catMap[c.slug] = c.id })
+    
+  const cats = await sql`SELECT id, slug FROM categories` as { id: number; slug: string }[]
+
+  const catMap: Record<string, number> = {}
+
+  cats.forEach((c) => {catMap[c.slug] = c.id})
 
     // Seed products
     const productData = [
