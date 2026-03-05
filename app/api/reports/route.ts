@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
         COALESCE(AVG(total_amount), 0) as avg_order
       FROM orders
       WHERE DATE(created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = ${date}
-        AND status = 'completed'
+        AND status != 'cancelled'
     `
 
     // Thu Chi for profit calc
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
         COUNT(*) as count
       FROM orders
       WHERE DATE(created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = ${date}
-        AND status = 'completed'
+        AND status != 'cancelled'
       GROUP BY hour
       ORDER BY hour
     `

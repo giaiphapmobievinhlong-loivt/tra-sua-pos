@@ -33,6 +33,7 @@ export async function GET() {
         category_id INTEGER REFERENCES categories(id),
         image_url TEXT,
         is_active BOOLEAN DEFAULT true,
+        sort_order INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
       )
     `
@@ -104,12 +105,9 @@ export async function GET() {
     `
 
     // Get category IDs
-    
-  const cats = await sql`SELECT id, slug FROM categories` as { id: number; slug: string }[]
-
-  const catMap: Record<string, number> = {}
-
-  cats.forEach((c) => {catMap[c.slug] = c.id})
+    const cats = await sql`SELECT id, slug FROM categories`
+    const catMap: Record<string, number> = {}
+    cats.forEach((c) => { catMap[c.slug] = c.id })
 
     // Seed products
     const productData = [
