@@ -5,13 +5,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   try {
     const id = Number(params.id)
     const body = await req.json()
-    const { status, is_paid, customer_paid, change_amount } = body
+    const { status, is_paid, customer_paid, change_amount, pay_method } = body
 
-    // Build update based on what was sent
     if (status !== undefined && is_paid !== undefined) {
       await sql`
         UPDATE orders SET status = ${status}, is_paid = ${is_paid},
-          customer_paid = ${customer_paid || 0}, change_amount = ${change_amount || 0}
+          customer_paid = ${customer_paid || 0}, change_amount = ${change_amount || 0},
+          pay_method = ${pay_method || null}
         WHERE id = ${id}
       `
     } else if (status !== undefined) {
@@ -19,16 +19,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     } else if (is_paid !== undefined) {
       await sql`
         UPDATE orders SET is_paid = ${is_paid},
-          customer_paid = ${customer_paid || 0}, change_amount = ${change_amount || 0}
+          customer_paid = ${customer_paid || 0}, change_amount = ${change_amount || 0},
+          pay_method = ${pay_method || null}
         WHERE id = ${id}
       `
     }
 
-    const rows = await sql`
-      SELECT o.*, u.username FROM orders o
-      LEFT JOIN users u ON o.user_id = u.id
-      WHERE o.id = ${id}
-    `
+    const rows = await sql`SELECT o.*, u.username FROM orders o LEFT JOIN users u ON o.user_id = u.id WHERE o.id = ${id}`
     const items = await sql`SELECT * FROM order_items WHERE order_id = ${id}`
     return NextResponse.json({ success: true, order: { ...rows[0], items } })
   } catch (error) {
@@ -38,8 +35,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
 export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const id = Number(params.id)
-    await sql`UPDATE orders SET status = 'cancelled' WHERE id = ${id}`
+    await sql`UPDATE orders SET status = 'cancelled' WHERE id = ${Number(params.id)}`
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 })

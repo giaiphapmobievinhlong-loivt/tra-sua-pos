@@ -3,7 +3,7 @@ import sql from '@/lib/db'
 
 export async function GET(req: NextRequest) {
   try {
-    const date = req.nextUrl.searchParams.get('date') || new Date().toISOString().split('T')[0]
+    const date = req.nextUrl.searchParams.get('date') || new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0]
 
     // Revenue stats
     const stats = await sql`

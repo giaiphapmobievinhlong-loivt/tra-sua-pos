@@ -15,7 +15,7 @@ interface Transaction {
 
 export default function ThuChiPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+  const [date, setDate] = useState(new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ type: 'chi', amount: '', description: '', note: '' })
   const [loading, setLoading] = useState(false)
