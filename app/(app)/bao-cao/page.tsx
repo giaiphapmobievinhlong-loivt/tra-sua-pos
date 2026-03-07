@@ -371,7 +371,7 @@ function MonthlyReport() {
 // ══════════════════════════════════════════════════════════════
 // ORDER HISTORY TAB
 // ══════════════════════════════════════════════════════════════
-interface OrderItem { id: number; product_name: string; quantity: number; unit_price: number; subtotal: number }
+interface OrderItem { id: number; product_name: string; quantity: number; unit_price: number; subtotal: number; item_note?: string }
 interface HistoryOrder {
   id: number; order_code: string; total_amount: number; status: string
   is_paid: boolean; pay_method: string | null; table_number: string | null
@@ -636,9 +636,12 @@ function OrderHistory() {
                 <div className="px-4 pb-3 border-t border-gray-50">
                   <div className="space-y-1.5 mt-2">
                     {order.items.map(item => (
-                      <div key={item.id} className="flex justify-between text-sm">
-                        <span className="text-gray-600">🧋 {item.product_name} <span className="text-gray-400 text-xs">×{item.quantity}</span></span>
-                        <span className="font-medium tabular-nums">{fmt(Number(item.subtotal))}đ</span>
+                      <div key={item.id} className="text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">🧋 {item.product_name} <span className="text-gray-400 text-xs">×{item.quantity}</span></span>
+                          <span className="font-medium tabular-nums shrink-0 ml-2">{fmt(Number(item.subtotal))}đ</span>
+                        </div>
+                        {item.item_note && <p className="text-[11px] text-orange-500 italic ml-5">✏️ {item.item_note}</p>}
                       </div>
                     ))}
                   </div>

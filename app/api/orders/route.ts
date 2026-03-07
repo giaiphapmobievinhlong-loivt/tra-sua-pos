@@ -9,6 +9,7 @@ async function ensureColumns() {
   try { await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS table_number VARCHAR(20) DEFAULT NULL` } catch { /**/ }
   try { await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT false` } catch { /**/ }
   try { await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS pay_method VARCHAR(20) DEFAULT NULL` } catch { /**/ }
+  try { await sql`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS item_note TEXT DEFAULT ''` } catch { /**/ }
   migrated = true
 }
 
@@ -88,8 +89,8 @@ export async function POST(req: NextRequest) {
       const prods = await sql`SELECT name FROM products WHERE id = ${item.product_id}`
       const productName = prods[0]?.name || "Unknown"
       await sql`
-        INSERT INTO order_items (order_id, product_id, product_name, quantity, unit_price, subtotal)
-        VALUES (${order.id}, ${item.product_id}, ${productName}, ${item.quantity}, ${item.unit_price}, ${item.quantity * item.unit_price})
+        INSERT INTO order_items (order_id, product_id, product_name, quantity, unit_price, subtotal, item_note)
+        VALUES (${order.id}, ${item.product_id}, ${productName}, ${item.quantity}, ${item.unit_price}, ${item.quantity * item.unit_price}, ${item.item_note || ''})
       `
     }
 

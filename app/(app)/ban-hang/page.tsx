@@ -8,7 +8,7 @@ import {
 interface Product {
   id: number; name: string; price: number; category_name: string; image_url: string
 }
-interface CartItem { product: Product; quantity: number }
+interface CartItem { product: Product; quantity: number; itemNote: string }
 
 const QUICK_AMOUNTS = [10000, 20000, 50000, 100000, 200000, 500000]
 const TABLE_NUMBERS = ['1','2','3','4','5','6','7','8','9','10','11','12']
@@ -32,6 +32,7 @@ interface CartPanelProps {
   success: string
   loading: boolean
   updateQty: (id: number, delta: number) => void
+  updateItemNote: (id: number, note: string) => void
   removeFromCart: (id: number) => void
   clearCart: () => void
   handleSubmit: () => void
@@ -41,7 +42,7 @@ function CartPanel({
   cart, total, tableNumber, setTableNumber,
   payNow, setPayNow, payMethod, setPayMethod,
   customerPaid, setCustomerPaid, note, setNote,
-  success, loading, updateQty, removeFromCart, clearCart, handleSubmit
+  success, loading, updateQty, updateItemNote, removeFromCart, clearCart, handleSubmit
 }: CartPanelProps) {
   const change = customerPaid - total
 
@@ -55,27 +56,57 @@ function CartPanel({
             <p className="text-sm">Chọn món để thêm vào đơn</p>
           </div>
         )}
-        {cart.map(({ product, quantity }) => (
-          <div key={product.id} className="flex items-center gap-2">
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm text-gray-800 truncate">{product.name}</p>
-              <p className="text-orange-500 text-xs">{Number(product.price).toLocaleString('vi-VN')}đ</p>
+        {cart.map(({ product, quantity, itemNote }) => (
+          <div key={product.id} className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm text-gray-800 truncate">{product.name}</p>
+                <p className="text-orange-500 text-xs">{Number(product.price).toLocaleString('vi-VN')}đ</p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => updateQty(product.id, -1)}
+                  className="w-7 h-7 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 active:bg-gray-100 transition-colors">
+                  <Minus size={12} />
+                </button>
+                <span className="w-7 text-center text-sm font-bold">{quantity}</span>
+                <button onClick={() => updateQty(product.id, 1)}
+                  className="w-7 h-7 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 active:bg-gray-100 transition-colors">
+                  <Plus size={12} />
+                </button>
+              </div>
+              <div className="text-right min-w-[64px]">
+                <p className="text-sm font-bold">{(Number(product.price) * quantity).toLocaleString('vi-VN')}đ</p>
+                <button onClick={() => removeFromCart(product.id)}
+                  className="text-xs text-gray-400 hover:text-red-500 active:text-red-600">Xóa</button>
+              </div>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <button onClick={() => updateQty(product.id, -1)}
-                className="w-7 h-7 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 active:bg-gray-100 transition-colors">
-                <Minus size={12} />
-              </button>
-              <span className="w-7 text-center text-sm font-bold">{quantity}</span>
-              <button onClick={() => updateQty(product.id, 1)}
-                className="w-7 h-7 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 active:bg-gray-100 transition-colors">
-                <Plus size={12} />
-              </button>
-            </div>
-            <div className="text-right min-w-[64px]">
-              <p className="text-sm font-bold">{(Number(product.price) * quantity).toLocaleString('vi-VN')}đ</p>
-              <button onClick={() => removeFromCart(product.id)}
-                className="text-xs text-gray-400 hover:text-red-500 active:text-red-600">Xóa</button>
+            {/* Per-item note: quick tags + free text */}
+            <div className="pl-0">
+              <div className="flex flex-wrap gap-1 mb-1">
+                {['Ít đá','Không đá','Ít ngọt','Không ngọt','Thêm trân châu','Thêm thạch'].map(tag => {
+                  const active = itemNote.includes(tag)
+                  return (
+                    <button key={tag} type="button"
+                      onClick={() => {
+                        const tags = itemNote ? itemNote.split(', ').filter(Boolean) : []
+                        const next = active ? tags.filter(t => t !== tag) : [...tags, tag]
+                        updateItemNote(product.id, next.join(', '))
+                      }}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-all ${
+                        active ? 'bg-orange-500 text-white border-orange-500' : 'border-gray-200 text-gray-500 hover:border-orange-300'
+                      }`}>
+                      {tag}
+                    </button>
+                  )
+                })}
+              </div>
+              <input
+                type="text"
+                value={itemNote}
+                onChange={e => updateItemNote(product.id, e.target.value)}
+                placeholder="Ghi chú thêm..."
+                className="w-full text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-300 placeholder-gray-300 bg-gray-50"
+              />
             </div>
           </div>
         ))}
@@ -275,7 +306,7 @@ export default function BanHangPage() {
     setCart(prev => {
       const ex = prev.find(i => i.product.id === product.id)
       if (ex) return prev.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i)
-      return [...prev, { product, quantity: 1 }]
+      return [...prev, { product, quantity: 1, itemNote: '' }]
     })
   }
 
@@ -288,6 +319,10 @@ export default function BanHangPage() {
 
   function removeFromCart(id: number) {
     setCart(prev => prev.filter(i => i.product.id !== id))
+  }
+
+  function updateItemNote(id: number, note: string) {
+    setCart(prev => prev.map(i => i.product.id === id ? { ...i, itemNote: note } : i))
   }
 
   function clearCart() {
@@ -306,6 +341,7 @@ export default function BanHangPage() {
           product_id: i.product.id,
           quantity: i.quantity,
           unit_price: i.product.price,
+          item_note: i.itemNote || '',
         })),
         total_amount: total,
         customer_paid: payNow ? (payMethod === 'transfer' ? total : customerPaid) : 0,
@@ -355,7 +391,7 @@ export default function BanHangPage() {
     payNow, setPayNow, payMethod, setPayMethod,
     customerPaid, setCustomerPaid,
     note, setNote, success, loading,
-    updateQty, removeFromCart, clearCart, handleSubmit,
+    updateQty, updateItemNote, removeFromCart, clearCart, handleSubmit,
   }
 
   return (
