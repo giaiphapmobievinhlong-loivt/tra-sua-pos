@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Trà Sữa POS',
+  title: 'Trà Sữa Nhà Mèo',
   description: 'Hệ thống quản lý bán hàng trà sữa',
 }
 

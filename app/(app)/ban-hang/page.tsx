@@ -12,7 +12,7 @@ interface CartItem { product: Product; quantity: number }
 
 const QUICK_AMOUNTS = [10000, 20000, 50000, 100000, 200000, 500000]
 const TABLE_NUMBERS = ['1','2','3','4','5','6','7','8','9','10','11','12']
-const MOMO_QR = 'https://res.cloudinary.com/loivo/image/upload/v1772727855/thanhtoanmomo_iyoxds.jpg'
+const MOMO_QR = 'https://res.cloudinary.com/loivo/image/upload/v1772726400/thanhtoanmomo_iyoxds.jpg'
 type PayMethod = 'cash' | 'transfer'
 
 // ── Cart Panel — standalone component with explicit props ─────
@@ -59,7 +59,7 @@ function CartPanel({
           <div key={product.id} className="flex items-center gap-2">
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm text-gray-800 truncate">{product.name}</p>
-              <p className="text-orange-500 text-xs">{product.price.toLocaleString('vi-VN')}đ</p>
+              <p className="text-orange-500 text-xs">{Number(product.price).toLocaleString('vi-VN')}đ</p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
               <button onClick={() => updateQty(product.id, -1)}
@@ -73,7 +73,7 @@ function CartPanel({
               </button>
             </div>
             <div className="text-right min-w-[64px]">
-              <p className="text-sm font-bold">{(product.price * quantity).toLocaleString('vi-VN')}đ</p>
+              <p className="text-sm font-bold">{(Number(product.price) * quantity).toLocaleString('vi-VN')}đ</p>
               <button onClick={() => removeFromCart(product.id)}
                 className="text-xs text-gray-400 hover:text-red-500 active:text-red-600">Xóa</button>
             </div>
@@ -261,16 +261,14 @@ export default function BanHangPage() {
 
   useEffect(() => { fetchProducts() }, [fetchProducts])
 
-  // const categoryNames = [...new Set(products.map(p => p.category_name))]
-  
-    const categoryNames = Array.from(new Set(products.map(p => p.category_name)))
+  const categoryNames = Array.from(new Set(products.map(p => p.category_name)))
   const filtered = products.filter(p => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase())
     const matchCat = activeCategory === 'all' || p.category_name === activeCategory
     return matchSearch && matchCat
   })
 
-  const total = cart.reduce((s, i) => s + i.product.price * i.quantity, 0)
+  const total = cart.reduce((s, i) => s + Number(i.product.price) * i.quantity, 0)
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0)
 
   function addToCart(product: Product) {
@@ -410,7 +408,7 @@ export default function BanHangPage() {
                   />
                 </div>
                 <p className="font-semibold text-gray-800 text-xs leading-tight line-clamp-2">{product.name}</p>
-                <p className="text-orange-500 font-bold text-xs mt-0.5">{product.price.toLocaleString('vi-VN')}đ</p>
+                <p className="text-orange-500 font-bold text-xs mt-0.5">{Number(product.price).toLocaleString('vi-VN')}đ</p>
               </button>
             ))}
             {filtered.length === 0 && (

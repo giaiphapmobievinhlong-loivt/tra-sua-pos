@@ -1,42 +1,79 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-import { verifyToken } from './lib/auth'
+import { NextRequest, NextResponse } from 'next/server'
+import { jwtVerify } from 'jose'
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.JWT_SECRET || 'fallback-secret-change-in-production'
+)
 
-  // Public routes
-  if (pathname.startsWith('/login') || pathname.startsWith('/api/auth/login')) {
-    return NextResponse.next()
-  }
+// Role → allowed page prefixes
+const ROLE_ROUTES: Record<string, string[]> = {
+  staff:   ['/ban-hang', '/thu-chi', '/don-hang'],
+  manager: ['/ban-hang', '/thu-chi', '/don-hang', '/bao-cao'],
+  admin:   ['/ban-hang', '/thu-chi', '/don-hang', '/bao-cao', '/quan-ly', '/debug'],
+}
 
-  // API setup route (for initial setup)
-  if (pathname === '/api/setup') {
-    return NextResponse.next()
-  }
+// Routes that never need auth check (public)
+function isPublic(pathname: string) {
+  return (
+    pathname === '/' ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/api/setup') ||
+    pathname.startsWith('/api/debug') ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/favicon')
+  )
+}
 
-  const token = request.cookies.get('token')?.value
-  
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl
+
+  // Always allow public paths
+  if (isPublic(pathname)) return NextResponse.next()
+
+  const token = req.cookies.get('token')?.value
+
+  // No token → login
   if (!token) {
-    if (pathname.startsWith('/api/')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    return NextResponse.redirect(new URL('/login', request.url))
+    return NextResponse.redirect(new URL('/login', req.url))
   }
 
-  const user = await verifyToken(token)
-  if (!user) {
-    if (pathname.startsWith('/api/')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Verify JWT
+  let role = 'staff'
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET)
+    role = (payload.role as string) || 'staff'
+  } catch {
+    // Bad token → clear it and redirect to login
+    const res = NextResponse.redirect(new URL('/login', req.url))
+    res.cookies.delete('token')
+    return res
+  }
+
+  // ── API routes ───────────────────────────────────────
+  if (pathname.startsWith('/api/')) {
+    // Admin-only APIs
+    if (pathname.startsWith('/api/admin/') && role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
-    const response = NextResponse.redirect(new URL('/login', request.url))
-    response.cookies.delete('token')
-    return response
+    // Reports: manager & admin only
+    if (pathname.startsWith('/api/reports') && role === 'staff') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    return NextResponse.next()
+  }
+
+  // ── Page routes ──────────────────────────────────────
+  const allowed = ROLE_ROUTES[role] || ROLE_ROUTES['staff']
+  const canAccess = allowed.some(route => pathname.startsWith(route))
+
+  if (!canAccess) {
+    return NextResponse.redirect(new URL(allowed[0], req.url))
   }
 
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.png$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }

@@ -2,7 +2,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   DollarSign, ShoppingCart, TrendingUp, BarChart2,
-  Calendar, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight
+  Calendar, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight,
+  Search, ClipboardList, Banknote, QrCode, CheckCircle, Clock, ChefHat, Package, XCircle
 } from 'lucide-react'
 import {
   BarChart, Bar, LineChart, Line,
@@ -368,38 +369,332 @@ function MonthlyReport() {
 }
 
 // ══════════════════════════════════════════════════════════════
+// ORDER HISTORY TAB
+// ══════════════════════════════════════════════════════════════
+interface OrderItem { id: number; product_name: string; quantity: number; unit_price: number; subtotal: number }
+interface HistoryOrder {
+  id: number; order_code: string; total_amount: number; status: string
+  is_paid: boolean; pay_method: string | null; table_number: string | null
+  created_at: string; username: string; note: string; items: OrderItem[]
+}
+
+const STATUS_INFO: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+  pending:   { label: 'Chờ',        color: 'text-yellow-600 bg-yellow-50 border-yellow-200', icon: Clock },
+  brewing:   { label: 'Đang pha',   color: 'text-orange-600 bg-orange-50 border-orange-200', icon: ChefHat },
+  ready:     { label: 'Sẵn sàng',   color: 'text-green-600 bg-green-50 border-green-200',    icon: Package },
+  completed: { label: 'Hoàn thành', color: 'text-gray-600 bg-gray-50 border-gray-200',       icon: CheckCircle },
+  cancelled: { label: 'Đã hủy',    color: 'text-red-500 bg-red-50 border-red-200',           icon: XCircle },
+}
+
+function OrderHistory() {
+  const todayVN = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const [fromDate, setFromDate] = useState(todayVN)
+  const [toDate, setToDate]     = useState(todayVN)
+  const [search, setSearch]     = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [orders, setOrders]     = useState<HistoryOrder[]>([])
+  const [loading, setLoading]   = useState(false)
+  const [expanded, setExpanded] = useState<number | null>(null)
+
+  const fetchOrders = useCallback(async () => {
+    setLoading(true)
+    try {
+      const from = new Date(fromDate)
+      const to   = new Date(toDate)
+      const dates: string[] = []
+      for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
+        dates.push(d.toISOString().split('T')[0])
+      }
+      const limited = dates.slice(0, 31)
+      const results = await Promise.all(
+        limited.map(date => fetch(`/api/orders?date=${date}`).then(r => r.json()))
+      )
+      const all: HistoryOrder[] = results.flatMap(r => r.orders || [])
+      all.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      setOrders(all)
+    } finally { setLoading(false) }
+  }, [fromDate, toDate])
+
+  useEffect(() => { fetchOrders() }, [fetchOrders])
+
+  const filtered = orders.filter(o => {
+    if (statusFilter !== 'all' && o.status !== statusFilter) return false
+    if (search) {
+      const q = search.toLowerCase()
+      return (
+        o.order_code.toLowerCase().includes(q) ||
+        (o.username || '').toLowerCase().includes(q) ||
+        (o.table_number || '').toLowerCase().includes(q) ||
+        o.items.some(i => i.product_name.toLowerCase().includes(q))
+      )
+    }
+    return true
+  })
+
+  const totalRevenue = filtered
+    .filter(o => o.status !== 'cancelled')
+    .reduce((s, o) => s + Number(o.total_amount), 0)
+
+  return (
+    <div className="space-y-4">
+      {/* Date range */}
+      <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+        <div className="flex items-center gap-2 mb-3">
+          <Calendar size={15} className="text-orange-500" />
+          <span className="text-sm font-bold text-gray-700">Khoảng thời gian</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
+            className="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300" />
+          <span className="text-gray-400 text-sm font-medium shrink-0">→</span>
+          <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
+            className="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300" />
+        </div>
+        <div className="flex gap-1.5 mt-3 flex-wrap">
+          {[
+            { label: 'Hôm nay',   fn: () => { setFromDate(todayVN); setToDate(todayVN) } },
+            { label: 'Hôm qua',   fn: () => {
+              const y = new Date(Date.now() + 7*60*60*1000 - 86400000).toISOString().split('T')[0]
+              setFromDate(y); setToDate(y)
+            }},
+            { label: '7 ngày',    fn: () => {
+              const w = new Date(Date.now() + 7*60*60*1000 - 6*86400000).toISOString().split('T')[0]
+              setFromDate(w); setToDate(todayVN)
+            }},
+            { label: 'Tháng này', fn: () => {
+              const now = new Date(Date.now() + 7*60*60*1000)
+              const first = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`
+              setFromDate(first); setToDate(todayVN)
+            }},
+          ].map(p => (
+            <button key={p.label} onClick={p.fn}
+              className="px-3 py-1 text-xs font-semibold bg-orange-50 text-orange-600 border border-orange-100 rounded-full hover:bg-orange-100 transition-all">
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Search + status filter */}
+      <div className="flex gap-2">
+        <div className="flex-1 flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2.5 shadow-sm">
+          <Search size={14} className="text-gray-400 shrink-0" />
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Tìm mã đơn, nhân viên, sản phẩm..."
+            className="flex-1 text-sm focus:outline-none bg-transparent placeholder-gray-300" />
+        </div>
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+          className="text-xs font-semibold px-3 py-2 bg-white border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-300 text-gray-600">
+          <option value="all">Tất cả</option>
+          <option value="pending">Chờ</option>
+          <option value="brewing">Đang pha</option>
+          <option value="ready">Sẵn sàng</option>
+          <option value="completed">Hoàn thành</option>
+          <option value="cancelled">Đã hủy</option>
+        </select>
+      </div>
+
+      {/* Summary */}
+      {!loading && orders.length > 0 && (
+        <div className="space-y-2">
+          {/* Row 1 — tổng quan */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-orange-50 rounded-xl p-3 border border-orange-100 text-center">
+              <p className="text-xs text-orange-600 font-semibold">Tổng đơn</p>
+              <p className="text-lg font-bold text-orange-700">{filtered.length}</p>
+            </div>
+            <div className="bg-green-50 rounded-xl p-3 border border-green-100 text-center">
+              <p className="text-xs text-green-600 font-semibold">Hoàn thành</p>
+              <p className="text-lg font-bold text-green-700">{filtered.filter(o => o.status === 'completed').length}</p>
+            </div>
+            <div className="bg-blue-50 rounded-xl p-3 border border-blue-100 text-center">
+              <p className="text-xs text-blue-600 font-semibold">Doanh thu</p>
+              <p className="text-sm font-bold text-blue-700 tabular-nums">{fmtShort(totalRevenue)}đ</p>
+            </div>
+          </div>
+
+          {/* Row 2 — hình thức thanh toán */}
+          {(() => {
+            const paid = filtered.filter(o => o.status !== 'cancelled' && o.is_paid)
+            const cashOrders    = paid.filter(o => o.pay_method === 'cash')
+            const transferOrders = paid.filter(o => o.pay_method === 'transfer')
+            const unpaidOrders  = filtered.filter(o => o.status !== 'cancelled' && !o.is_paid)
+            const cashRev     = cashOrders.reduce((s, o) => s + Number(o.total_amount), 0)
+            const transferRev = transferOrders.reduce((s, o) => s + Number(o.total_amount), 0)
+            const unpaidRev   = unpaidOrders.reduce((s, o) => s + Number(o.total_amount), 0)
+            const total = cashRev + transferRev + unpaidRev || 1
+            return (
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                <p className="text-xs font-bold text-gray-500 mb-3">💳 Hình thức thanh toán</p>
+                <div className="space-y-2.5">
+                  {/* Cash */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <Banknote size={13} className="text-green-600" />
+                        <span className="text-xs font-semibold text-gray-700">Tiền mặt</span>
+                        <span className="text-[10px] text-gray-400">{cashOrders.length} đơn</span>
+                      </div>
+                      <span className="text-xs font-bold text-green-700 tabular-nums">{fmt(cashRev)}đ</span>
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-green-400 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.round(cashRev / total * 100)}%` }} />
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-0.5 text-right">{Math.round(cashRev / total * 100)}%</p>
+                  </div>
+                  {/* Transfer */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <QrCode size={13} className="text-pink-600" />
+                        <span className="text-xs font-semibold text-gray-700">Chuyển khoản</span>
+                        <span className="text-[10px] text-gray-400">{transferOrders.length} đơn</span>
+                      </div>
+                      <span className="text-xs font-bold text-pink-700 tabular-nums">{fmt(transferRev)}đ</span>
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-pink-400 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.round(transferRev / total * 100)}%` }} />
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-0.5 text-right">{Math.round(transferRev / total * 100)}%</p>
+                  </div>
+                  {/* Unpaid */}
+                  {unpaidOrders.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px]">⏳</span>
+                          <span className="text-xs font-semibold text-gray-700">Chưa thanh toán</span>
+                          <span className="text-[10px] text-gray-400">{unpaidOrders.length} đơn</span>
+                        </div>
+                        <span className="text-xs font-bold text-gray-500 tabular-nums">{fmt(unpaidRev)}đ</span>
+                      </div>
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-gray-300 rounded-full transition-all duration-500"
+                          style={{ width: `${Math.round(unpaidRev / total * 100)}%` }} />
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-0.5 text-right">{Math.round(unpaidRev / total * 100)}%</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
+
+      {loading && <div className="text-center py-10 text-gray-400 text-sm">Đang tải...</div>}
+
+      {!loading && filtered.length === 0 && (
+        <div className="text-center py-10">
+          <ClipboardList size={32} className="mx-auto text-gray-200 mb-2" />
+          <p className="text-gray-400 text-sm">Không tìm thấy đơn hàng</p>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {filtered.map(order => {
+          const si = STATUS_INFO[order.status] || STATUS_INFO.completed
+          const StatusIcon = si.icon
+          const isOpen = expanded === order.id
+          const dateStr = new Date(order.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
+          const timeStr = new Date(order.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+          return (
+            <div key={order.id}
+              className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden ${order.status === 'cancelled' ? 'opacity-60' : ''}`}>
+              <button onClick={() => setExpanded(isOpen ? null : order.id)}
+                className="w-full text-left px-4 py-3 flex items-center gap-3">
+                <div className="shrink-0 text-center w-10">
+                  <p className="text-[10px] text-gray-400 leading-none">{dateStr}</p>
+                  <p className="text-xs font-bold text-gray-600 leading-none mt-0.5">{timeStr}</p>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-bold text-gray-800 text-sm">#{order.order_code}</span>
+                    {order.table_number
+                      ? <span className="text-[10px] bg-orange-100 text-orange-700 font-semibold px-1.5 py-0.5 rounded-full">Bàn {order.table_number}</span>
+                      : <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">Mang đi</span>}
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border inline-flex items-center gap-0.5 ${si.color}`}>
+                      <StatusIcon size={9} />{si.label}
+                    </span>
+                    {order.pay_method === 'cash'     && <span className="text-[10px] bg-green-50 text-green-600 border border-green-100 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5"><Banknote size={9}/>TM</span>}
+                    {order.pay_method === 'transfer' && <span className="text-[10px] bg-pink-50 text-pink-600 border border-pink-100 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5"><QrCode size={9}/>CK</span>}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5 truncate">{order.username} · {order.items.length} món</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-bold text-orange-600 text-sm tabular-nums">{fmt(Number(order.total_amount))}đ</p>
+                  <p className={`text-[10px] ${order.is_paid ? 'text-green-500' : 'text-red-400'}`}>
+                    {order.is_paid ? '✓ Đã TT' : 'Chưa TT'}
+                  </p>
+                </div>
+                <span className="text-gray-300 text-xs shrink-0">{isOpen ? '▲' : '▼'}</span>
+              </button>
+
+              {isOpen && (
+                <div className="px-4 pb-3 border-t border-gray-50">
+                  <div className="space-y-1.5 mt-2">
+                    {order.items.map(item => (
+                      <div key={item.id} className="flex justify-between text-sm">
+                        <span className="text-gray-600">🧋 {item.product_name} <span className="text-gray-400 text-xs">×{item.quantity}</span></span>
+                        <span className="font-medium tabular-nums">{fmt(Number(item.subtotal))}đ</span>
+                      </div>
+                    ))}
+                  </div>
+                  {order.note && <p className="text-xs text-gray-400 italic mt-2">📝 {order.note}</p>}
+                  <div className="mt-2 pt-2 border-t border-gray-50 flex justify-between text-sm">
+                    <span className="text-gray-500">Tổng</span>
+                    <span className="font-bold text-gray-800 tabular-nums">{fmt(Number(order.total_amount))}đ</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ══════════════════════════════════════════════════════════════
 export default function BaoCaoPage() {
-  const [tab, setTab] = useState<'daily' | 'monthly'>('daily')
+  const [tab, setTab] = useState<'daily' | 'monthly' | 'history'>('daily')
 
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-2xl mx-auto px-4 md:px-6 pt-4 pb-8">
-        {/* Header */}
         <div className="mb-4">
           <h1 className="text-xl md:text-2xl font-bold text-gray-800">Báo Cáo</h1>
           <p className="text-gray-400 text-xs mt-0.5">Phân tích doanh thu chi tiết</p>
         </div>
 
-        {/* Tab switcher */}
-        <div className="flex gap-2 mb-5 bg-gray-100 p-1 rounded-2xl">
+        <div className="flex gap-1.5 mb-5 bg-gray-100 p-1 rounded-2xl">
           <button onClick={() => setTab('daily')}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${
               tab === 'daily' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
             }`}>
             📅 Theo Ngày
           </button>
           <button onClick={() => setTab('monthly')}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${
               tab === 'monthly' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
             }`}>
             📆 Theo Tháng
+          </button>
+          <button onClick={() => setTab('history')}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              tab === 'history' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}>
+            🧾 Lịch sử
           </button>
         </div>
 
         {tab === 'daily'   && <DailyReport />}
         {tab === 'monthly' && <MonthlyReport />}
+        {tab === 'history' && <OrderHistory />}
       </div>
     </div>
   )

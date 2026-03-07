@@ -41,7 +41,7 @@ export default function LoginPage() {
           <div className="w-20 h-20 bg-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
             <span className="text-4xl">🧋</span>
           </div>
-          <h1 className="text-3xl font-bold text-orange-700">Trà Sữa POS</h1>
+          <h1 className="text-3xl font-bold text-orange-700">Trà Sữa Nhà Mèo</h1>
           <p className="text-gray-500 mt-1">Đăng nhập để tiếp tục</p>
         </div>
 
