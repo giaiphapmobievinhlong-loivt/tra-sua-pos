@@ -376,6 +376,7 @@ interface HistoryOrder {
   id: number; order_code: string; total_amount: number; status: string
   is_paid: boolean; pay_method: string | null; table_number: string | null
   created_at: string; username: string; note: string; items: OrderItem[]
+  discount_amount?: number; discount_name?: string
 }
 
 const STATUS_INFO: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -645,6 +646,12 @@ function OrderHistory() {
                       </div>
                     ))}
                   </div>
+                  {order.discount_amount && Number(order.discount_amount) > 0 && (
+                    <div className="flex justify-between text-sm text-green-600 mt-1">
+                      <span>🏷️ {order.discount_name || 'Giảm giá'}</span>
+                      <span>-{Number(order.discount_amount).toLocaleString('vi-VN')}đ</span>
+                    </div>
+                  )}
                   {order.note && <p className="text-xs text-gray-400 italic mt-2">📝 {order.note}</p>}
                   <div className="mt-2 pt-2 border-t border-gray-50 flex justify-between text-sm">
                     <span className="text-gray-500">Tổng</span>

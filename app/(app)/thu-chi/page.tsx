@@ -1,4 +1,5 @@
 'use client'
+import { apiFetch } from '@/lib/apiFetch'
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, TrendingUp, TrendingDown, Calendar, X, Trash2 } from 'lucide-react'
 
@@ -42,7 +43,7 @@ export default function ThuChiPage() {
     if (!form.amount || Number(form.amount) <= 0) return
     setLoading(true)
     try {
-      const res = await fetch('/api/transactions', {
+      const res = await apiFetch('/api/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, amount: Number(form.amount), transaction_date: date }),
@@ -59,7 +60,7 @@ export default function ThuChiPage() {
 
   async function handleDelete(id: number) {
     if (!confirm('Xóa giao dịch này?')) return
-    await fetch(`/api/transactions/${id}`, { method: 'DELETE' })
+    await apiFetch(`/api/transactions/${id}`, { method: 'DELETE' })
     fetchTransactions()
   }
 

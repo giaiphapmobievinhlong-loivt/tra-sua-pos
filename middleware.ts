@@ -17,9 +17,12 @@ function isPublic(pathname: string) {
   return (
     pathname === '/' ||
     pathname.startsWith('/login') ||
+    pathname.startsWith('/order') ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/setup') ||
     pathname.startsWith('/api/debug') ||
+    pathname.startsWith('/api/public') ||
+    pathname.startsWith('/api/products') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon')
   )

@@ -3,9 +3,10 @@ import bcrypt from 'bcryptjs'
 import sql from '@/lib/db'
 import { getUserFromRequest } from '@/lib/auth'
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const id = Number(params.id)
+    const { id: idStr } = await params
+    const id = Number(idStr)
     const { full_name, password, role } = await req.json()
 
     if (password) {
@@ -26,10 +27,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const currentUser = await getUserFromRequest(req)
-    const id = Number(params.id)
+    const { id: idStr } = await params
+    const id = Number(idStr)
 
     // Prevent self-deletion
     if (currentUser?.id === id) {

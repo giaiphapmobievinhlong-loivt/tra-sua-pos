@@ -21,6 +21,8 @@ export default function LoginPage() {
       })
       const data = await res.json()
       if (res.ok) {
+        // Store token in localStorage as fallback for cookie issues
+        if (data.token) localStorage.setItem('auth_token', data.token)
         router.push('/ban-hang')
         router.refresh()
       } else {

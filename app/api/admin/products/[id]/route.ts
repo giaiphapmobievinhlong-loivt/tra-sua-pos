@@ -7,10 +7,11 @@ async function ensureSortOrder() {
   } catch { /* already exists */ }
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await ensureSortOrder()
-    const id = Number(params.id)
+    const { id: idStr } = await params
+    const id = Number(idStr)
     const body = await req.json()
     const { name, price, category_id, image_url, is_active, sort_order } = body
 
@@ -34,9 +35,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const id = Number(params.id)
+    const { id: idStr } = await params
+    const id = Number(idStr)
     await sql`DELETE FROM products WHERE id = ${id}`
     return NextResponse.json({ success: true })
   } catch (error) {

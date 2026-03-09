@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { name, slug } = await req.json()
-    const id = Number(params.id)
+    const { id: idStr } = await params
+    const id = Number(idStr)
 
     // Check slug conflict
     const existing = await sql`SELECT id FROM categories WHERE slug = ${slug} AND id != ${id}`
@@ -19,9 +20,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const id = Number(params.id)
+    const { id: idStr } = await params
+    const id = Number(idStr)
     const products = await sql`SELECT id FROM products WHERE category_id = ${id} LIMIT 1`
     if (products.length > 0) return NextResponse.json({ error: 'Danh mục đang có sản phẩm, không thể xóa' }, { status: 400 })
 

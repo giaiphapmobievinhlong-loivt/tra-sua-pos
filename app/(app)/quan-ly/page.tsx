@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Pencil, Trash2, Package, Layers, Users, X, Check, Eye, EyeOff } from 'lucide-react'
+import { Plus, Pencil, Trash2, Package, Layers, Users, X, Check, Eye, EyeOff, Tag, Percent, DollarSign, ToggleLeft, ToggleRight, QrCode, Printer, ExternalLink } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────
 interface Category {
@@ -29,7 +29,7 @@ interface User {
   created_at: string
 }
 
-type Tab = 'products' | 'categories' | 'users'
+type Tab = 'products' | 'categories' | 'users' | 'discounts' | 'qr'
 
 // ─── Modal wrapper ────────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -600,11 +600,328 @@ function UsersTab() {
   )
 }
 
+
+// ─── Discounts Tab ────────────────────────────────────────
+interface Discount {
+  id: number; name: string; type: 'percent' | 'fixed'
+  value: number; min_order: number; is_active: boolean
+}
+
+function DiscountsTab() {
+  const [discounts, setDiscounts] = useState<Discount[]>([])
+  const [loading, setLoading] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState<Discount | null>(null)
+  const [form, setForm] = useState({ name: '', type: 'percent' as 'percent'|'fixed', value: '', min_order: '', is_active: true })
+  const [deleting, setDeleting] = useState<Discount | null>(null)
+
+  const fetch_ = useCallback(async () => {
+    setLoading(true)
+    const res = await fetch('/api/discounts')
+    const d = await res.json()
+    setDiscounts(d.discounts || [])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { fetch_() }, [fetch_])
+
+  function openCreate() {
+    setEditing(null)
+    setForm({ name: '', type: 'percent', value: '', min_order: '', is_active: true })
+    setShowForm(true)
+  }
+  function openEdit(d: Discount) {
+    setEditing(d)
+    setForm({ name: d.name, type: d.type, value: String(d.value), min_order: String(d.min_order || 0), is_active: d.is_active })
+    setShowForm(true)
+  }
+
+  async function handleSave() {
+    if (!form.name || !form.value) return
+    const body = { name: form.name, type: form.type, value: Number(form.value), min_order: Number(form.min_order || 0), is_active: form.is_active }
+    if (editing) {
+      await fetch(`/api/discounts/${editing.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    } else {
+      await fetch('/api/discounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    }
+    setShowForm(false)
+    fetch_()
+  }
+
+  async function handleToggle(d: Discount) {
+    await fetch(`/api/discounts/${d.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...d, is_active: !d.is_active })
+    })
+    fetch_()
+  }
+
+  async function handleDelete() {
+    if (!deleting) return
+    await fetch(`/api/discounts/${deleting.id}`, { method: 'DELETE' })
+    setDeleting(null)
+    fetch_()
+  }
+
+  const fmt = (n: number) => n.toLocaleString('vi-VN')
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-gray-500">{discounts.length} khuyến mãi</p>
+        <button onClick={openCreate}
+          className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-all">
+          <Plus size={16} /> Thêm khuyến mãi
+        </button>
+      </div>
+
+      {loading && <div className="text-center py-10 text-gray-400 text-sm">Đang tải...</div>}
+
+      {!loading && discounts.length === 0 && (
+        <div className="text-center py-16 text-gray-400">
+          <Tag size={36} className="mx-auto mb-3 opacity-30" />
+          <p className="text-sm">Chưa có khuyến mãi nào</p>
+          <p className="text-xs mt-1">Bấm "Thêm khuyến mãi" để tạo mới</p>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {discounts.map(d => (
+          <div key={d.id} className={`bg-white rounded-2xl p-4 border shadow-sm transition-all ${d.is_active ? 'border-gray-100' : 'border-gray-100 opacity-50'}`}>
+            <div className="flex items-start gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${d.type === 'percent' ? 'bg-purple-100' : 'bg-green-100'}`}>
+                {d.type === 'percent' ? <Percent size={18} className="text-purple-600" /> : <DollarSign size={18} className="text-green-600" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-bold text-gray-800">{d.name}</p>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${d.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                    {d.is_active ? 'Đang bật' : 'Tắt'}
+                  </span>
+                </div>
+                <p className="text-sm font-bold mt-0.5 text-orange-600">
+                  {d.type === 'percent' ? `Giảm ${d.value}%` : `Giảm ${fmt(d.value)}đ`}
+                </p>
+                {Number(d.min_order) > 0 && (
+                  <p className="text-xs text-gray-400 mt-0.5">Đơn tối thiểu: {fmt(Number(d.min_order))}đ</p>
+                )}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => handleToggle(d)} title={d.is_active ? 'Tắt' : 'Bật'}
+                  className={`p-2 rounded-lg transition-all ${d.is_active ? 'text-green-500 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-50'}`}>
+                  {d.is_active ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                </button>
+                <button onClick={() => openEdit(d)} className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all">
+                  <Pencil size={16} />
+                </button>
+                <button onClick={() => setDeleting(d)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Form modal */}
+      {showForm && (
+        <Modal title={editing ? 'Sửa khuyến mãi' : 'Thêm khuyến mãi'} onClose={() => setShowForm(false)}>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tên khuyến mãi *</label>
+              <input value={form.name} onChange={e => setForm(p => ({...p, name: e.target.value}))}
+                placeholder="VD: Giảm 10% cuối tuần, Combo sinh nhật..."
+                className="input w-full" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Loại giảm giá</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => setForm(p => ({...p, type: 'percent'}))}
+                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
+                    form.type === 'percent' ? 'border-purple-400 bg-purple-50 text-purple-700' : 'border-gray-200 text-gray-500'
+                  }`}>
+                  <Percent size={15} /> Phần trăm (%)
+                </button>
+                <button onClick={() => setForm(p => ({...p, type: 'fixed'}))}
+                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
+                    form.type === 'fixed' ? 'border-green-400 bg-green-50 text-green-700' : 'border-gray-200 text-gray-500'
+                  }`}>
+                  <DollarSign size={15} /> Số tiền cố định
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Giá trị giảm {form.type === 'percent' ? '(%)' : '(đ)'} *
+                </label>
+                <input type="number" value={form.value} onChange={e => setForm(p => ({...p, value: e.target.value}))}
+                  placeholder={form.type === 'percent' ? '10' : '20000'}
+                  className="input w-full" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Đơn tối thiểu (đ)</label>
+                <input type="number" value={form.min_order} onChange={e => setForm(p => ({...p, min_order: e.target.value}))}
+                  placeholder="0 = không giới hạn"
+                  className="input w-full" />
+              </div>
+            </div>
+            <div className="flex items-center justify-between py-2">
+              <span className="text-sm font-medium text-gray-700">Kích hoạt ngay</span>
+              <button onClick={() => setForm(p => ({...p, is_active: !p.is_active}))}
+                className={`transition-all ${form.is_active ? 'text-green-500' : 'text-gray-300'}`}>
+                {form.is_active ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+              </button>
+            </div>
+            {form.value && (
+              <div className={`rounded-xl px-4 py-3 text-sm font-medium ${form.type === 'percent' ? 'bg-purple-50 text-purple-700' : 'bg-green-50 text-green-700'}`}>
+                Preview: {form.type === 'percent'
+                  ? `Giảm ${form.value}% cho đơn hàng${Number(form.min_order) > 0 ? ` từ ${fmt(Number(form.min_order))}đ` : ''}`
+                  : `Giảm thẳng ${fmt(Number(form.value))}đ${Number(form.min_order) > 0 ? ` (đơn từ ${fmt(Number(form.min_order))}đ)` : ''}`
+                }
+              </div>
+            )}
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setShowForm(false)} className="flex-1 btn-secondary">Hủy</button>
+              <button onClick={handleSave}
+                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                {editing ? 'Lưu thay đổi' : 'Tạo khuyến mãi'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {deleting && (
+        <ConfirmDelete name={deleting.name} onConfirm={handleDelete} onCancel={() => setDeleting(null)} />
+      )}
+    </div>
+  )
+}
+
+
+// ─── QR Tab ───────────────────────────────────────────────
+const TABLE_LIST = ['1','2','3','4','5','6','7','8','9','10','11','12']
+
+function QrTab() {
+  const [baseUrl, setBaseUrl] = useState('')
+  const [selected, setSelected] = useState<string | null>(null)
+
+  useEffect(() => {
+    setBaseUrl(window.location.origin)
+  }, [])
+
+  function getOrderUrl(table: string) {
+    return `${baseUrl}/order?table=${table}`
+  }
+
+  function printAll() {
+    window.print()
+  }
+
+  function printSingle(table: string) {
+    setSelected(table)
+    setTimeout(() => { window.print(); setSelected(null) }, 300)
+  }
+
+  return (
+    <div>
+      <style>{`
+        @media print {
+          body > * { display: none !important; }
+          #qr-print-area { display: block !important; }
+          .no-print { display: none !important; }
+        }
+        #qr-print-area { display: none; }
+        @media print { #qr-print-area { display: block; } }
+      `}</style>
+
+      {/* Print area (hidden, shown on print) */}
+      <div id="qr-print-area">
+        {(selected ? [selected] : TABLE_LIST).map(table => (
+          <div key={table} style={{
+            width: '8cm', height: '10cm', margin: '0.5cm auto',
+            border: '2px solid #f97316', borderRadius: '12px',
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', padding: '16px', pageBreakAfter: 'always',
+            fontFamily: 'sans-serif',
+          }}>
+            <div style={{ fontSize: 32, marginBottom: 4 }}>🧋</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: '#c2410c', marginBottom: 2 }}>Trà Sữa Nhà Mèo</div>
+            <div style={{ fontSize: 13, color: '#888', marginBottom: 12 }}>Quét mã để đặt món</div>
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(getOrderUrl(table))}`}
+              alt={`QR Bàn ${table}`}
+              style={{ width: 180, height: 180, borderRadius: 8 }}
+            />
+            <div style={{ fontSize: 22, fontWeight: 900, marginTop: 12, color: '#1f2937' }}>Bàn {table}</div>
+            <div style={{ fontSize: 10, color: '#aaa', marginTop: 4, wordBreak: 'break-all', textAlign: 'center' }}>
+              {getOrderUrl(table)}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* UI */}
+      <div className="no-print">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <p className="text-sm text-gray-500">QR cố định — khách scan là vào trang đặt món đúng bàn</p>
+          </div>
+          <button onClick={printAll}
+            className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-all">
+            <Printer size={15} /> In tất cả ({TABLE_LIST.length} bàn)
+          </button>
+        </div>
+
+        {/* Base URL config */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-5 flex items-start gap-3">
+          <div className="shrink-0 mt-0.5">ℹ️</div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-blue-700 mb-1">URL website của quán</p>
+            <input value={baseUrl} onChange={e => setBaseUrl(e.target.value)}
+              className="w-full text-xs px-3 py-1.5 border border-blue-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white font-mono"
+              placeholder="https://ten-quan.vercel.app" />
+            <p className="text-xs text-blue-500 mt-1">Tự động lấy từ domain hiện tại. Sửa nếu domain thực tế khác.</p>
+          </div>
+        </div>
+
+        {/* Grid of tables */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {TABLE_LIST.map(table => (
+            <div key={table} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col items-center gap-3">
+              <div className="font-black text-gray-800 text-lg">Bàn {table}</div>
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(getOrderUrl(table))}`}
+                alt={`QR Bàn ${table}`}
+                className="w-36 h-36 rounded-xl border border-gray-100"
+              />
+              <p className="text-[10px] text-gray-400 text-center break-all">{getOrderUrl(table)}</p>
+              <div className="flex gap-2 w-full">
+                <a href={getOrderUrl(table)} target="_blank" rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-1 text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-100 py-1.5 rounded-lg hover:bg-blue-100 transition-all">
+                  <ExternalLink size={11} /> Mở thử
+                </a>
+                <button onClick={() => printSingle(table)}
+                  className="flex-1 flex items-center justify-center gap-1 text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-100 py-1.5 rounded-lg hover:bg-orange-100 transition-all">
+                  <Printer size={11} /> In
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'products', label: 'Sản Phẩm', icon: Package },
   { id: 'categories', label: 'Danh Mục', icon: Layers },
   { id: 'users', label: 'Nhân Viên', icon: Users },
+  { id: 'discounts', label: 'Khuyến Mãi', icon: Tag },
+  { id: 'qr', label: 'QR Bàn', icon: QrCode },
 ]
 
 export default function QuanLyPage() {
@@ -647,6 +964,8 @@ export default function QuanLyPage() {
       {tab === 'products' && <ProductsTab categories={categories} />}
       {tab === 'categories' && <CategoriesTab onCategoriesChange={fetchCategories} />}
       {tab === 'users' && <UsersTab />}
+      {tab === 'discounts' && <DiscountsTab />}
+      {tab === 'qr' && <QrTab />}
     </div>
   )
 }

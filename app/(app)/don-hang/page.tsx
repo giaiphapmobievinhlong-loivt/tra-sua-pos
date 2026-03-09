@@ -1,28 +1,31 @@
 'use client'
+import { apiFetch } from '@/lib/apiFetch'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Calendar, Filter, Clock, ChefHat, CheckCircle, XCircle, Package, CreditCard, RefreshCw, Banknote, QrCode, AlertCircle } from 'lucide-react'
+import { Calendar, Filter, Clock, ChefHat, CheckCircle, XCircle, Package, CreditCard, RefreshCw, Banknote, QrCode, AlertCircle, Globe } from 'lucide-react'
 
 interface OrderItem {
-  id: number; product_name: string; quantity: number; unit_price: number; subtotal: number
+  id: number; product_name: string; quantity: number; unit_price: number; subtotal: number; item_note?: string
 }
 interface Order {
   id: number; order_code: string; total_amount: number; customer_paid: number; change_amount: number
-  note: string; status: string; is_paid: boolean; table_number: string | null; pay_method: string | null
+  note: string; status: string; discount_amount?: number; discount_name?: string; is_paid: boolean; table_number: string | null; pay_method: string | null
   created_at: string; username: string; items: OrderItem[]
+  source?: string; customer_name?: string; customer_phone?: string
 }
 
 const STATUSES = [
-  { key: 'all',       label: 'Tất cả',   icon: Filter,      color: '' },
-  { key: 'pending',   label: 'Chờ',      icon: Clock,       color: 'text-yellow-600 bg-yellow-50 border-yellow-200' },
-  { key: 'brewing',   label: 'Đang pha', icon: ChefHat,     color: 'text-orange-600 bg-orange-50 border-orange-200' },
-  { key: 'ready',     label: 'Sẵn sàng', icon: Package,     color: 'text-green-600 bg-green-50 border-green-200' },
-  { key: 'completed', label: 'Xong',     icon: CheckCircle, color: 'text-gray-600 bg-gray-50 border-gray-200' },
-  { key: 'cancelled', label: 'Đã hủy',  icon: XCircle,     color: 'text-red-500 bg-red-50 border-red-200' },
+  { key: 'all',               label: 'Tất cả',      icon: Filter,      color: '' },
+  { key: 'pending',           label: 'Chờ',         icon: Clock,       color: 'text-yellow-600 bg-yellow-50 border-yellow-200' },
+  { key: 'awaiting_confirm',  label: 'Chờ duyệt TT', icon: CreditCard,  color: 'text-purple-600 bg-purple-50 border-purple-200' },
+  { key: 'brewing',           label: 'Đang pha',    icon: ChefHat,     color: 'text-orange-600 bg-orange-50 border-orange-200' },
+  { key: 'ready',             label: 'Sẵn sàng',   icon: Package,     color: 'text-green-600 bg-green-50 border-green-200' },
+  { key: 'completed',         label: 'Xong',        icon: CheckCircle, color: 'text-gray-600 bg-gray-50 border-gray-200' },
+  { key: 'cancelled',         label: 'Đã hủy',     icon: XCircle,     color: 'text-red-500 bg-red-50 border-red-200' },
 ]
-const NEXT_STATUS: Record<string, string> = { pending: 'brewing', brewing: 'ready', ready: 'completed' }
-const NEXT_LABEL: Record<string, string>  = { pending: 'Đang pha', brewing: 'Sẵn sàng', ready: 'Hoàn thành' }
-const STATUS_EMOJI: Record<string, string> = { pending: '⏰', brewing: '☕', ready: '📦', completed: '✔', cancelled: '✖' }
-const MOMO_QR = 'https://res.cloudinary.com/loivo/image/upload/v1772727855/thanhtoanmomo_iyoxds.jpg'
+const NEXT_STATUS: Record<string, string> = { pending: 'brewing', awaiting_confirm: 'brewing', brewing: 'ready', ready: 'completed' }
+const NEXT_LABEL: Record<string, string>  = { pending: 'Đang pha', awaiting_confirm: '✓ Duyệt & Pha', brewing: 'Sẵn sàng', ready: 'Hoàn thành' }
+const STATUS_EMOJI: Record<string, string> = { pending: '⏰', awaiting_confirm: '💳', brewing: '☕', ready: '📦', completed: '✔', cancelled: '✖' }
+const MOMO_QR = 'https://res.cloudinary.com/loivo/image/upload/v1772726400/thanhtoanmomo_iyoxds.jpg'
 const QUICK = [10000, 20000, 50000, 100000, 200000, 500000]
 type PayMethod = 'cash' | 'transfer'
 
@@ -139,9 +142,12 @@ function OrderCard({ order, onStatusChange, onPay, onCancel }: {
       </div>
       <div className="px-4 pb-3 space-y-1 border-b border-gray-50">
         {order.items.map(item => (
-          <div key={item.id} className="flex justify-between text-sm">
-            <span className="text-gray-700">🧋 {item.product_name} <span className="text-gray-400 text-xs">×{item.quantity}</span></span>
-            <span className="font-medium">{item.subtotal.toLocaleString('vi-VN')}đ</span>
+          <div key={item.id} className="text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-700">🧋 {item.product_name} <span className="text-gray-400 text-xs">×{item.quantity}</span></span>
+              <span className="font-medium shrink-0 ml-2">{item.subtotal.toLocaleString('vi-VN')}đ</span>
+            </div>
+            {item.item_note && <p className="text-[11px] text-orange-500 italic ml-5">✏️ {item.item_note}</p>}
           </div>
         ))}
         {order.note && <p className="text-xs text-gray-400 italic mt-1">📝 {order.note}</p>}
@@ -178,7 +184,12 @@ export default function DonHangPage() {
   const [date, setDate]                 = useState(getTodayVN)
   const [activeFilter, setActiveFilter] = useState('all')
   const [payingOrder, setPayingOrder]   = useState<Order | null>(null)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const intervalRef  = useRef<ReturnType<typeof setInterval> | null>(null)
+  const seenIds            = useRef<Set<number>>(new Set())
+  const seenConfirmIds     = useRef<Set<number>>(new Set())
+  const [newWebOrders, setNewWebOrders]           = useState(0)
+  const [awaitingConfirmOrders, setAwaitingConfirmOrders] = useState<Order[]>([])
+  const audioRef           = useRef<HTMLAudioElement | null>(null)
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -189,7 +200,23 @@ export default function DonHangPage() {
         setError(data.error || `Lỗi HTTP ${res.status}`)
         return
       }
-      setOrders(data.orders || [])
+      const fetched: Order[] = data.orders || []
+      setOrders(fetched)
+      // Detect new web orders
+      const newWeb = fetched.filter(o => o.source === 'web' && o.status === 'pending' && !seenIds.current.has(o.id))
+      if (newWeb.length > 0) {
+        newWeb.forEach(o => seenIds.current.add(o.id))
+        setNewWebOrders(prev => prev + newWeb.length)
+        try { audioRef.current?.play() } catch { /**/ }
+      }
+      // Detect awaiting_confirm orders (khách đã bấm "Đã chuyển khoản")
+      const waiting = fetched.filter(o => o.status === 'awaiting_confirm')
+      setAwaitingConfirmOrders(waiting)
+      const newConfirm = waiting.filter(o => !seenConfirmIds.current.has(o.id))
+      if (newConfirm.length > 0) {
+        newConfirm.forEach(o => seenConfirmIds.current.add(o.id))
+        try { audioRef.current?.play() } catch { /**/ }
+      }
     } catch (e) {
       setError(`Lỗi kết nối: ${e}`)
     } finally {
@@ -206,17 +233,28 @@ export default function DonHangPage() {
 
   async function handleStatusChange(id: number, status: string) {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o))
-    await fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
+    await apiFetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
     fetchOrders()
   }
   async function handleCancel(id: number) {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelled' } : o))
-    await fetch(`/api/orders/${id}`, { method: 'DELETE' })
+    await apiFetch(`/api/orders/${id}`, { method: 'DELETE' })
     fetchOrders()
   }
+  async function handleApproveConfirm(id: number) {
+    // Duyệt thanh toán: mark is_paid=true, status=brewing, pay_method=transfer
+    await apiFetch(`/api/orders/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'brewing', is_paid: true, pay_method: 'transfer' }),
+    })
+    setAwaitingConfirmOrders(prev => prev.filter(o => o.id !== id))
+    fetchOrders()
+  }
+
   async function handlePay(paid: number, method: PayMethod) {
     if (!payingOrder) return
-    await fetch(`/api/orders/${payingOrder.id}`, {
+    await apiFetch(`/api/orders/${payingOrder.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ is_paid: true, customer_paid: paid, change_amount: Math.max(0, paid - payingOrder.total_amount), pay_method: method }),
@@ -235,6 +273,8 @@ export default function DonHangPage() {
       <div className="px-4 md:px-6 pt-4 pb-3 shrink-0">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-xl font-bold text-gray-800">Đơn Hàng</h1>
+          {/* hidden audio beep for web orders */}
+          <audio ref={audioRef} src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAA..." preload="auto" style={{display:'none'}} />
           <div className="flex items-center gap-2">
             <button onClick={() => { setLoading(true); fetchOrders() }}
               className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-xl transition-all">
@@ -252,6 +292,40 @@ export default function DonHangPage() {
           <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm">
             <AlertCircle size={16} className="shrink-0" />
             <span>{error}</span>
+          </div>
+        )}
+        {newWebOrders > 0 && (
+          <div className="mb-3 bg-blue-50 border border-blue-300 text-blue-700 px-4 py-2.5 rounded-xl flex items-center justify-between text-sm animate-pulse">
+            <span className="flex items-center gap-2 font-bold">
+              <Globe size={15}/> {newWebOrders} đơn mới từ website!
+            </span>
+            <button onClick={() => setNewWebOrders(0)} className="text-blue-400 hover:text-blue-600 font-bold ml-2">✕</button>
+          </div>
+        )}
+        {awaitingConfirmOrders.length > 0 && (
+          <div className="mb-3 bg-purple-50 border border-purple-300 rounded-xl overflow-hidden">
+            <div className="px-4 py-2.5 flex items-center justify-between">
+              <span className="flex items-center gap-2 font-bold text-purple-700 text-sm">
+                💳 {awaitingConfirmOrders.length} đơn chờ duyệt thanh toán
+              </span>
+            </div>
+            <div className="px-3 pb-3 space-y-2">
+              {awaitingConfirmOrders.map(o => (
+                <div key={o.id} className="bg-white rounded-xl px-3 py-2.5 flex items-center justify-between gap-3 border border-purple-100">
+                  <div className="min-w-0">
+                    <p className="font-bold text-gray-800 text-sm">#{o.order_code}</p>
+                    <p className="text-xs text-gray-400">
+                      {o.table_number ? `Bàn ${o.table_number}` : 'Mang về'} · {Number(o.total_amount).toLocaleString('vi-VN')}đ
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleApproveConfirm(o.id)}
+                    className="shrink-0 bg-purple-500 hover:bg-purple-600 text-white text-xs font-bold px-3 py-2 rounded-xl active:scale-95 transition-all">
+                    ✓ Duyệt & Pha
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

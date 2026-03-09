@@ -1,19 +1,150 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import { apiFetch } from '@/lib/apiFetch'
 import {
   Search, Minus, Plus, Trash2, ShoppingCart,
-  X, ChevronUp, CreditCard, Clock, Banknote, QrCode
+  X, ChevronUp, CreditCard, Clock, Banknote, QrCode, Tag, Percent, ChevronDown, Check
 } from 'lucide-react'
 
 interface Product {
   id: number; name: string; price: number; category_name: string; image_url: string
 }
 interface CartItem { product: Product; quantity: number; itemNote: string }
+interface Discount { id: number; name: string; type: 'percent'|'fixed'; value: number; min_order: number; is_active: boolean }
 
 const QUICK_AMOUNTS = [10000, 20000, 50000, 100000, 200000, 500000]
 const TABLE_NUMBERS = ['1','2','3','4','5','6','7','8','9','10','11','12']
 const MOMO_QR = 'https://res.cloudinary.com/loivo/image/upload/v1772726400/thanhtoanmomo_iyoxds.jpg'
 type PayMethod = 'cash' | 'transfer'
+
+// ── Discount Selector ────────────────────────────────────────
+interface DiscountSelectorProps {
+  total: number
+  discounts: Discount[]
+  selectedDiscount: Discount | null
+  setSelectedDiscount: (d: Discount | null) => void
+  manualDiscount: string
+  setManualDiscount: (v: string) => void
+  manualType: 'percent' | 'fixed'
+  setManualType: (v: 'percent' | 'fixed') => void
+}
+
+function DiscountSelector({ total, discounts, selectedDiscount, setSelectedDiscount, manualDiscount, setManualDiscount, manualType, setManualType }: DiscountSelectorProps) {
+  const [open, setOpen] = useState(false)
+  const eligible = discounts.filter(d => d.is_active && Number(d.min_order) <= total)
+
+  // Compute preview for manual entry
+  const manualAmt = manualDiscount
+    ? (manualType === 'percent'
+        ? Math.round(total * Math.min(100, Number(manualDiscount)) / 100)
+        : Math.min(Number(manualDiscount), total))
+    : 0
+
+  const label = selectedDiscount
+    ? selectedDiscount.name
+    : manualDiscount
+      ? (manualType === 'percent' ? `Giảm ${manualDiscount}%` : `Giảm ${Number(manualDiscount).toLocaleString('vi-VN')}đ`)
+      : 'Chọn hoặc nhập giảm giá'
+
+  const hasDiscount = selectedDiscount || Number(manualDiscount) > 0
+
+  return (
+    <div>
+      {/* Toggle row */}
+      <button onClick={() => setOpen(o => !o)}
+        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border transition-all text-sm ${
+          hasDiscount ? 'border-orange-400 bg-orange-50' : 'border-gray-200 bg-white hover:border-orange-200'
+        }`}>
+        <div className="flex items-center gap-2">
+          <Tag size={14} className={hasDiscount ? 'text-orange-500' : 'text-gray-400'} />
+          <span className={`font-medium ${hasDiscount ? 'text-orange-700' : 'text-gray-500'}`}>{label}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {hasDiscount && <span className="text-xs text-green-600 font-bold">-{(selectedDiscount
+            ? (selectedDiscount.type === 'percent' ? Math.round(total * selectedDiscount.value / 100) : Math.min(Number(selectedDiscount.value), total))
+            : manualAmt).toLocaleString('vi-VN')}đ</span>}
+          <ChevronDown size={14} className={`text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </div>
+      </button>
+
+      {open && (
+        <div className="mt-2 border border-gray-100 rounded-xl bg-white shadow-sm overflow-hidden">
+          {/* Preset combos */}
+          {eligible.length > 0 && (
+            <div className="p-3 border-b border-gray-100">
+              <p className="text-[11px] text-gray-400 font-semibold uppercase mb-2">Chương trình khuyến mãi</p>
+              <div className="space-y-1.5">
+                {eligible.map(d => {
+                  const saving = d.type === 'percent' ? Math.round(total * d.value / 100) : Math.min(Number(d.value), total)
+                  const active = selectedDiscount?.id === d.id
+                  return (
+                    <button key={d.id}
+                      onClick={() => { setSelectedDiscount(active ? null : d); setManualDiscount(''); if (!active) setOpen(false) }}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all ${
+                        active ? 'bg-orange-100 text-orange-700' : 'hover:bg-gray-50 text-gray-700'
+                      }`}>
+                      <div className="text-left">
+                        <p className="font-semibold">{d.name}</p>
+                        <p className="text-xs text-green-600">
+                          {d.type === 'percent' ? `Giảm ${d.value}%` : `Giảm ${Number(d.value).toLocaleString('vi-VN')}đ`}
+                          {' '}→ tiết kiệm {saving.toLocaleString('vi-VN')}đ
+                        </p>
+                      </div>
+                      {active && <Check size={14} className="text-orange-500 shrink-0" />}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Manual entry */}
+          <div className="p-3">
+            <p className="text-[11px] text-gray-400 font-semibold uppercase mb-2">Nhập thủ công</p>
+            <div className="flex gap-2 items-center">
+              <div className="flex border border-gray-200 rounded-lg overflow-hidden shrink-0">
+                <button onClick={() => { setManualType('percent'); setSelectedDiscount(null) }}
+                  className={`px-2.5 py-1.5 text-xs font-bold transition-all ${manualType === 'percent' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                  %
+                </button>
+                <button onClick={() => { setManualType('fixed'); setSelectedDiscount(null) }}
+                  className={`px-2.5 py-1.5 text-xs font-bold transition-all ${manualType === 'fixed' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                  đ
+                </button>
+              </div>
+              <input
+                type="number"
+                value={manualDiscount}
+                onChange={e => { setManualDiscount(e.target.value); setSelectedDiscount(null) }}
+                placeholder={manualType === 'percent' ? 'VD: 10' : 'VD: 20000'}
+                className="flex-1 text-sm px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-300"
+              />
+              {manualDiscount && (
+                <button onClick={() => { setManualDiscount(''); setOpen(false) }}
+                  className="text-xs text-orange-600 font-semibold shrink-0 px-2 py-1.5 bg-orange-50 rounded-lg">
+                  Áp dụng
+                </button>
+              )}
+            </div>
+            {manualDiscount && Number(manualDiscount) > 0 && (
+              <p className="text-xs text-green-600 mt-1.5 pl-1">
+                → Tiết kiệm {manualAmt.toLocaleString('vi-VN')}đ
+              </p>
+            )}
+          </div>
+
+          {/* Clear */}
+          {hasDiscount && (
+            <button onClick={() => { setSelectedDiscount(null); setManualDiscount(''); setOpen(false) }}
+              className="w-full py-2 text-xs text-red-500 hover:bg-red-50 transition-all border-t border-gray-100">
+              ✕ Bỏ giảm giá
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ── Cart Panel — standalone component with explicit props ─────
 interface CartPanelProps {
@@ -31,6 +162,15 @@ interface CartPanelProps {
   setNote: (v: string) => void
   success: string
   loading: boolean
+  discounts: Discount[]
+  selectedDiscount: Discount | null
+  setSelectedDiscount: (d: Discount | null) => void
+  manualDiscount: string
+  setManualDiscount: (v: string) => void
+  manualType: 'percent' | 'fixed'
+  setManualType: (v: 'percent' | 'fixed') => void
+  discountAmount: number
+  finalTotal: number
   updateQty: (id: number, delta: number) => void
   updateItemNote: (id: number, note: string) => void
   removeFromCart: (id: number) => void
@@ -42,9 +182,10 @@ function CartPanel({
   cart, total, tableNumber, setTableNumber,
   payNow, setPayNow, payMethod, setPayMethod,
   customerPaid, setCustomerPaid, note, setNote,
+  discounts, selectedDiscount, setSelectedDiscount, manualDiscount, setManualDiscount, manualType, setManualType, discountAmount, finalTotal,
   success, loading, updateQty, updateItemNote, removeFromCart, clearCart, handleSubmit
 }: CartPanelProps) {
-  const change = customerPaid - total
+  const change = customerPaid - finalTotal
 
   return (
     <div className="flex-1 overflow-y-auto overscroll-contain min-h-0">
@@ -218,7 +359,7 @@ function CartPanel({
         {payNow && payMethod === 'transfer' && (
           <div className="rounded-2xl bg-pink-50 border border-pink-100 p-4 text-center">
             <p className="text-xs font-semibold text-pink-600 mb-3">
-              Quét mã chuyển <strong>{total.toLocaleString('vi-VN')}đ</strong>
+              Quét mã chuyển <strong>{finalTotal.toLocaleString('vi-VN')}đ</strong>
             </p>
             <img src={MOMO_QR} alt="QR chuyển khoản"
               className="w-40 h-auto rounded-xl shadow mx-auto" />
@@ -235,10 +376,41 @@ function CartPanel({
           className="input resize-none text-sm w-full"
         />
 
+        {/* Discount selector — always visible */}
+        <DiscountSelector
+          total={total}
+          discounts={discounts}
+          selectedDiscount={selectedDiscount}
+          setSelectedDiscount={setSelectedDiscount}
+          manualDiscount={manualDiscount}
+          setManualDiscount={setManualDiscount}
+          manualType={manualType}
+          setManualType={setManualType}
+        />
+
         {/* Total */}
-        <div className="flex justify-between items-center bg-orange-50 rounded-xl px-4 py-3">
-          <span className="font-bold text-gray-800">Tổng cộng</span>
-          <span className="font-bold text-orange-500 text-xl">{total.toLocaleString('vi-VN')}đ</span>
+        <div className="bg-orange-50 rounded-xl px-4 py-3 space-y-1">
+          {discountAmount > 0 ? (
+            <>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Tạm tính</span>
+                <span className="text-gray-600">{total.toLocaleString('vi-VN')}đ</span>
+              </div>
+              <div className="flex justify-between text-sm text-green-600">
+                <span>Giảm giá {selectedDiscount ? `(${selectedDiscount.name})` : ''}</span>
+                <span>-{discountAmount.toLocaleString('vi-VN')}đ</span>
+              </div>
+              <div className="border-t border-orange-200 pt-1 flex justify-between items-center">
+                <span className="font-bold text-gray-800">Tổng cộng</span>
+                <span className="font-bold text-orange-500 text-xl">{finalTotal.toLocaleString('vi-VN')}đ</span>
+              </div>
+            </>
+          ) : (
+            <div className="flex justify-between items-center">
+              <span className="font-bold text-gray-800">Tổng cộng</span>
+              <span className="font-bold text-orange-500 text-xl">{total.toLocaleString('vi-VN')}đ</span>
+            </div>
+          )}
         </div>
 
         {success && (
@@ -283,6 +455,10 @@ export default function BanHangPage() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState('')
   const [cartOpen, setCartOpen] = useState(false)
+  const [discounts, setDiscounts] = useState<Discount[]>([])
+  const [selectedDiscount, setSelectedDiscount] = useState<Discount | null>(null)
+  const [manualDiscount, setManualDiscount] = useState('')
+  const [manualType, setManualType] = useState<'percent'|'fixed'>('percent')
 
   const fetchProducts = useCallback(async () => {
     const res = await fetch('/api/products')
@@ -290,7 +466,13 @@ export default function BanHangPage() {
     setProducts(data.products || [])
   }, [])
 
-  useEffect(() => { fetchProducts() }, [fetchProducts])
+  const fetchDiscounts = useCallback(async () => {
+    const res = await fetch('/api/discounts')
+    const data = await res.json()
+    setDiscounts(data.discounts || [])
+  }, [])
+
+  useEffect(() => { fetchProducts(); fetchDiscounts() }, [fetchProducts, fetchDiscounts])
 
   const categoryNames = Array.from(new Set(products.map(p => p.category_name)))
   const filtered = products.filter(p => {
@@ -300,6 +482,16 @@ export default function BanHangPage() {
   })
 
   const total = cart.reduce((s, i) => s + Number(i.product.price) * i.quantity, 0)
+  const discountAmount = selectedDiscount
+    ? (selectedDiscount.type === 'percent'
+        ? Math.round(total * selectedDiscount.value / 100)
+        : Math.min(Number(selectedDiscount.value), total))
+    : manualDiscount && Number(manualDiscount) > 0
+      ? (manualType === 'percent'
+          ? Math.round(total * Math.min(100, Number(manualDiscount)) / 100)
+          : Math.min(Number(manualDiscount), total))
+      : 0
+  const finalTotal = Math.max(0, total - discountAmount)
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0)
 
   function addToCart(product: Product) {
@@ -330,6 +522,8 @@ export default function BanHangPage() {
     setCustomerPaid(0)
     setNote('')
     setTableNumber('')
+    setSelectedDiscount(null)
+    setManualDiscount('')
   }
 
   async function handleSubmit() {
@@ -343,9 +537,11 @@ export default function BanHangPage() {
           unit_price: i.product.price,
           item_note: i.itemNote || '',
         })),
-        total_amount: total,
-        customer_paid: payNow ? (payMethod === 'transfer' ? total : customerPaid) : 0,
-        change_amount: payNow ? (payMethod === 'transfer' ? 0 : Math.max(0, customerPaid - total)) : 0,
+        total_amount: finalTotal,
+        discount_amount: discountAmount,
+        discount_name: selectedDiscount?.name || (manualDiscount ? `Giảm thủ công (${manualType === 'percent' ? manualDiscount + '%' : Number(manualDiscount).toLocaleString('vi-VN') + 'đ'})` : ''),
+        customer_paid: payNow ? (payMethod === 'transfer' ? finalTotal : customerPaid) : 0,
+        change_amount: payNow ? (payMethod === 'transfer' ? 0 : Math.max(0, customerPaid - finalTotal)) : 0,
         note: note || '',
         table_number: tableNumber || null,
         status: 'pending',
@@ -355,7 +551,7 @@ export default function BanHangPage() {
 
       console.log('Submitting order:', body)
 
-      const res = await fetch('/api/orders', {
+      const res = await apiFetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -391,6 +587,9 @@ export default function BanHangPage() {
     payNow, setPayNow, payMethod, setPayMethod,
     customerPaid, setCustomerPaid,
     note, setNote, success, loading,
+    discounts, selectedDiscount, setSelectedDiscount,
+    manualDiscount, setManualDiscount, manualType, setManualType,
+    discountAmount, finalTotal,
     updateQty, updateItemNote, removeFromCart, clearCart, handleSubmit,
   }
 

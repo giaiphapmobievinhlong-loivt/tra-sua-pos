@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       role: user.role,
     })
 
-    const response = NextResponse.json({ success: true, user: { id: user.id, username: user.username, full_name: user.full_name, role: user.role } })
+    const response = NextResponse.json({ success: true, token, user: { id: user.id, username: user.username, full_name: user.full_name, role: user.role } })
     response.cookies.set('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

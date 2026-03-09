@@ -30,16 +30,24 @@ export async function verifyToken(token: string): Promise<UserPayload | null> {
 }
 
 export async function getUser(): Promise<UserPayload | null> {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const token = cookieStore.get('token')?.value
   if (!token) return null
   return verifyToken(token)
 }
 
 export async function getUserFromRequest(req: NextRequest): Promise<UserPayload | null> {
-  const token = req.cookies.get('token')?.value
-  if (!token) return null
-  return verifyToken(token)
+  // 1. Try cookie (primary)
+  const cookieToken = req.cookies.get('token')?.value
+  if (cookieToken) return verifyToken(cookieToken)
+
+  // 2. Try Authorization header as fallback (Bearer token)
+  const authHeader = req.headers.get('authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    return verifyToken(authHeader.slice(7))
+  }
+
+  return null
 }
 
 export function formatCurrency(amount: number): string {
