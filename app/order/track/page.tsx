@@ -2,18 +2,29 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 
-const STATUS_STEPS = [
-  { key: 'pending',           icon: '📋', label: 'Đã nhận đơn',       desc: 'Đơn hàng đang chờ xác nhận' },
-  { key: 'awaiting_confirm',  icon: '💳', label: 'Chờ duyệt TT',      desc: 'Đang chờ nhân viên xác nhận thanh toán...' },
-  { key: 'brewing',           icon: '☕', label: 'Đang pha chế',      desc: 'Nhân viên đang làm đồ uống cho bạn 🐱' },
-  { key: 'ready',             icon: '✅', label: 'Sẵn sàng',          desc: 'Đồ uống đã xong, vui lòng nhận tại quầy!' },
-  { key: 'completed',         icon: '🎉', label: 'Hoàn thành',        desc: 'Cảm ơn bạn đã đến Trà Sữa Nhà Mèo!' },
+// Steps cho đơn thường (tại quán / mang về)
+const STATUS_STEPS_NORMAL = [
+  { key: 'pending',           icon: '📋', label: 'Đã nhận đơn',    desc: 'Đơn hàng đang chờ xác nhận' },
+  { key: 'awaiting_confirm',  icon: '💳', label: 'Chờ duyệt TT',   desc: 'Đang chờ nhân viên xác nhận thanh toán...' },
+  { key: 'brewing',           icon: '☕', label: 'Đang pha chế',   desc: 'Nhân viên đang làm đồ uống cho bạn 🐱' },
+  { key: 'ready',             icon: '✅', label: 'Sẵn sàng',       desc: 'Đồ uống đã xong, vui lòng nhận tại quầy!' },
+  { key: 'completed',         icon: '🎉', label: 'Hoàn thành',     desc: 'Cảm ơn bạn đã đến Trà Sữa Nhà Mèo!' },
 ]
-const STATUS_ORDER = ['pending','awaiting_confirm','brewing','ready','completed']
+const STATUS_ORDER_NORMAL = ['pending','awaiting_confirm','brewing','ready','completed']
+
+// Steps cho đơn giao hàng
+const STATUS_STEPS_DELIVERY = [
+  { key: 'pending',           icon: '📋', label: 'Đã nhận đơn',    desc: 'Đơn hàng đang chờ xác nhận' },
+  { key: 'awaiting_confirm',  icon: '💳', label: 'Chờ duyệt TT',   desc: 'Đang chờ nhân viên xác nhận thanh toán...' },
+  { key: 'brewing',           icon: '☕', label: 'Đang pha chế',   desc: 'Đang chuẩn bị đồ uống cho bạn 🐱' },
+  { key: 'delivering',        icon: '🛵', label: 'Đang giao hàng', desc: 'Shipper đang trên đường đến bạn!' },
+  { key: 'completed',         icon: '🎉', label: 'Đã giao xong',   desc: 'Cảm ơn bạn đã đặt hàng tại Nhà Mèo!' },
+]
+const STATUS_ORDER_DELIVERY = ['pending','awaiting_confirm','brewing','delivering','completed']
 const fmt = (n: number) => Number(n).toLocaleString('vi-VN')
 
 interface OrderItem { product_name: string; quantity: number; subtotal: number; item_note?: string }
-interface Order { id: number; order_code: string; status: string; total_amount: number; table_number: string | null; customer_name: string; items: OrderItem[]; is_paid: boolean; created_at: string }
+interface Order { id: number; order_code: string; status: string; total_amount: number; table_number: string | null; customer_name: string; customer_phone?: string; items: OrderItem[]; is_paid: boolean; created_at: string; order_type?: string; delivery_address?: string; delivery_fee?: number }
 
 function TrackContent() {
   const params = useSearchParams()
@@ -48,7 +59,6 @@ function TrackContent() {
     return () => clearInterval(iv)
   }, [order])
 
-  const currentStep = order ? STATUS_ORDER.indexOf(order.status) : -1
 
   return (
     <div className="min-h-screen bg-[#FFF8F0]" style={{ fontFamily: "'Nunito', sans-serif" }}>
@@ -112,11 +122,16 @@ function TrackContent() {
                   <p className="font-bold text-red-500">Đơn hàng đã bị hủy</p>
                   <p className="text-xs text-gray-400 mt-1">Vui lòng liên hệ nhân viên nếu có thắc mắc</p>
                 </div>
-              ) : (
+              ) : (() => {
+                const isDelivery = order.order_type === 'delivery'
+                const steps = isDelivery ? STATUS_STEPS_DELIVERY : STATUS_STEPS_NORMAL
+                const stepOrder = isDelivery ? STATUS_ORDER_DELIVERY : STATUS_ORDER_NORMAL
+                const curStep = stepOrder.indexOf(order.status)
+                return (
                 <div className="space-y-0">
-                  {STATUS_STEPS.map((step, idx) => {
-                    const done = idx <= currentStep
-                    const current = idx === currentStep
+                  {steps.map((step, idx) => {
+                    const done = idx <= curStep
+                    const current = idx === curStep
                     return (
                       <div key={step.key} className="flex gap-4">
                         <div className="flex flex-col items-center">
@@ -125,11 +140,11 @@ function TrackContent() {
                           } ${current ? 'ring-4 ring-orange-200 scale-110' : ''}`}>
                             {done ? step.icon : <span className="text-gray-300 text-sm">○</span>}
                           </div>
-                          {idx < STATUS_STEPS.length - 1 && (
-                            <div className={`w-0.5 h-8 mt-1 ${idx < currentStep ? 'bg-orange-400' : 'bg-gray-200'}`} />
+                          {idx < steps.length - 1 && (
+                            <div className={`w-0.5 h-8 mt-1 ${idx < curStep ? 'bg-orange-400' : 'bg-gray-200'}`} />
                           )}
                         </div>
-                        <div className={`pt-2 pb-6 ${idx === STATUS_STEPS.length - 1 ? 'pb-0' : ''}`}>
+                        <div className={`pt-2 pb-6 ${idx === steps.length - 1 ? 'pb-0' : ''}`}>
                           <p className={`text-sm font-bold ${done ? 'text-gray-800' : 'text-gray-400'}`}>{step.label}</p>
                           {current && <p className="text-xs text-orange-500 mt-0.5">{step.desc}</p>}
                         </div>
@@ -137,7 +152,7 @@ function TrackContent() {
                     )
                   })}
                 </div>
-              )}
+              )})()}
             </div>
 
             {/* Items */}

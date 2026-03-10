@@ -1,7 +1,7 @@
 'use client'
 import { apiFetch } from '@/lib/apiFetch'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Calendar, Filter, Clock, ChefHat, CheckCircle, XCircle, Package, CreditCard, RefreshCw, Banknote, QrCode, AlertCircle, Globe } from 'lucide-react'
+import { Calendar, Filter, Clock, ChefHat, CheckCircle, XCircle, Package, CreditCard, RefreshCw, Banknote, QrCode, AlertCircle, Globe, Truck, MapPin } from 'lucide-react'
 
 interface OrderItem {
   id: number; product_name: string; quantity: number; unit_price: number; subtotal: number; item_note?: string
@@ -11,6 +11,7 @@ interface Order {
   note: string; status: string; discount_amount?: number; discount_name?: string; is_paid: boolean; table_number: string | null; pay_method: string | null
   created_at: string; username: string; items: OrderItem[]
   source?: string; customer_name?: string; customer_phone?: string
+  delivery_address?: string; delivery_fee?: number; order_type?: string
 }
 
 const STATUSES = [
@@ -18,13 +19,23 @@ const STATUSES = [
   { key: 'pending',           label: 'Chờ',         icon: Clock,       color: 'text-yellow-600 bg-yellow-50 border-yellow-200' },
   { key: 'awaiting_confirm',  label: 'Chờ duyệt TT', icon: CreditCard,  color: 'text-purple-600 bg-purple-50 border-purple-200' },
   { key: 'brewing',           label: 'Đang pha',    icon: ChefHat,     color: 'text-orange-600 bg-orange-50 border-orange-200' },
+  { key: 'delivering',        label: 'Đang giao',   icon: Truck,       color: 'text-blue-600 bg-blue-50 border-blue-200' },
   { key: 'ready',             label: 'Sẵn sàng',   icon: Package,     color: 'text-green-600 bg-green-50 border-green-200' },
   { key: 'completed',         label: 'Xong',        icon: CheckCircle, color: 'text-gray-600 bg-gray-50 border-gray-200' },
   { key: 'cancelled',         label: 'Đã hủy',     icon: XCircle,     color: 'text-red-500 bg-red-50 border-red-200' },
 ]
-const NEXT_STATUS: Record<string, string> = { pending: 'brewing', awaiting_confirm: 'brewing', brewing: 'ready', ready: 'completed' }
-const NEXT_LABEL: Record<string, string>  = { pending: 'Đang pha', awaiting_confirm: '✓ Duyệt & Pha', brewing: 'Sẵn sàng', ready: 'Hoàn thành' }
-const STATUS_EMOJI: Record<string, string> = { pending: '⏰', awaiting_confirm: '💳', brewing: '☕', ready: '📦', completed: '✔', cancelled: '✖' }
+const NEXT_STATUS: Record<string, string> = {
+  pending: 'brewing', awaiting_confirm: 'brewing',
+  brewing: 'delivering', // delivery orders go to delivering; normal orders skip this (handled in UI)
+  ready: 'completed', delivering: 'completed'
+}
+const NEXT_LABEL: Record<string, string> = {
+  pending: 'Đang pha', awaiting_confirm: '✓ Duyệt & Pha',
+  brewing: 'Đang giao', ready: 'Hoàn thành', delivering: 'Đã giao xong'
+}
+const NEXT_STATUS_NORMAL: Record<string, string> = { pending: 'brewing', awaiting_confirm: 'brewing', brewing: 'ready', ready: 'completed' }
+const NEXT_LABEL_NORMAL: Record<string, string> = { pending: 'Đang pha', awaiting_confirm: '✓ Duyệt & Pha', brewing: 'Sẵn sàng', ready: 'Hoàn thành' }
+const STATUS_EMOJI: Record<string, string> = { pending: '⏰', awaiting_confirm: '💳', brewing: '☕', delivering: '🛵', ready: '📦', completed: '✔', cancelled: '✖' }
 const MOMO_QR = 'https://res.cloudinary.com/loivo/image/upload/v1772726400/thanhtoanmomo_iyoxds.jpg'
 const QUICK = [10000, 20000, 50000, 100000, 200000, 500000]
 type PayMethod = 'cash' | 'transfer'
@@ -116,7 +127,9 @@ function OrderCard({ order, onStatusChange, onPay, onCancel }: {
   onCancel: (id: number) => void
 }) {
   const statusInfo = STATUSES.find(s => s.key === order.status) || STATUSES[1]
-  const nextStatus = NEXT_STATUS[order.status]
+  const isDelivery = order.order_type === 'delivery'
+  const nextStatus = isDelivery ? NEXT_STATUS[order.status] : NEXT_STATUS_NORMAL[order.status]
+  const nextLabel  = isDelivery ? NEXT_LABEL[order.status]  : NEXT_LABEL_NORMAL[order.status]
   const isCancelled = order.status === 'cancelled'
   const timeStr = new Date(order.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
   return (
@@ -124,9 +137,11 @@ function OrderCard({ order, onStatusChange, onPay, onCancel }: {
       <div className="px-4 pt-3 pb-2 flex items-start justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="font-bold text-gray-800 text-sm">#{order.order_code}</span>
-          {order.table_number
-            ? <span className="text-xs bg-orange-100 text-orange-700 font-semibold px-2 py-0.5 rounded-full">Bàn {order.table_number}</span>
-            : <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Mang đi</span>}
+          {order.order_type === 'delivery'
+            ? <span className="text-xs bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full flex items-center gap-1"><Truck size={10}/>Giao hàng</span>
+            : order.table_number
+              ? <span className="text-xs bg-orange-100 text-orange-700 font-semibold px-2 py-0.5 rounded-full">Bàn {order.table_number}</span>
+              : <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Mang đi</span>}
           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${statusInfo.color}`}>
             {STATUS_EMOJI[order.status]} {statusInfo.label}
           </span>
@@ -151,6 +166,17 @@ function OrderCard({ order, onStatusChange, onPay, onCancel }: {
           </div>
         ))}
         {order.note && <p className="text-xs text-gray-400 italic mt-1">📝 {order.note}</p>}
+        {order.order_type === 'delivery' && order.delivery_address && (
+          <div className="mt-2 bg-blue-50 rounded-xl px-3 py-2 space-y-0.5">
+            <p className="text-xs font-bold text-blue-700 flex items-center gap-1"><MapPin size={10}/>Giao đến</p>
+            <p className="text-xs text-blue-800">{order.delivery_address}</p>
+            {order.customer_name && <p className="text-xs text-blue-600">👤 {order.customer_name}</p>}
+            {order.customer_phone && <p className="text-xs text-blue-600">📞 {order.customer_phone}</p>}
+            {order.delivery_fee && Number(order.delivery_fee) > 0 && (
+              <p className="text-xs text-blue-600">🛵 Phí ship: {Number(order.delivery_fee).toLocaleString('vi-VN')}đ</p>
+            )}
+          </div>
+        )}
       </div>
       <div className="px-4 py-3 flex items-center justify-between gap-2">
         <span className="font-bold text-gray-800 text-sm">{order.total_amount.toLocaleString('vi-VN')} <span className="text-orange-500">đ</span></span>
@@ -166,7 +192,7 @@ function OrderCard({ order, onStatusChange, onPay, onCancel }: {
             )}
             {nextStatus && (
               <button onClick={() => onStatusChange(order.id, nextStatus)} className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-orange-500 text-white hover:bg-orange-600 active:scale-95">
-                {NEXT_LABEL[order.status]}
+                {nextLabel}
               </button>
             )}
           </div>
@@ -184,6 +210,7 @@ export default function DonHangPage() {
   const [date, setDate]                 = useState(getTodayVN)
   const [activeFilter, setActiveFilter] = useState('all')
   const [payingOrder, setPayingOrder]   = useState<Order | null>(null)
+  const [activeTab, setActiveTab]        = useState<'orders'|'delivery'>('orders')
   const intervalRef  = useRef<ReturnType<typeof setInterval> | null>(null)
   const seenIds            = useRef<Set<number>>(new Set())
   const seenConfirmIds     = useRef<Set<number>>(new Set())
@@ -263,16 +290,41 @@ export default function DonHangPage() {
     fetchOrders()
   }
 
-  const filtered = activeFilter === 'all' ? orders : orders.filter(o => o.status === activeFilter)
-  const counts: Record<string, number> = { all: orders.length }
-  orders.forEach(o => { counts[o.status] = (counts[o.status] || 0) + 1 })
+  const deliveryOrders = orders.filter(o => o.order_type === 'delivery')
+  const nonDeliveryOrders = orders.filter(o => o.order_type !== 'delivery')
+  const baseOrders = activeTab === 'delivery' ? deliveryOrders : nonDeliveryOrders
+  const filtered = activeFilter === 'all' ? baseOrders : baseOrders.filter(o => o.status === activeFilter)
+  const counts: Record<string, number> = { all: baseOrders.length }
+  baseOrders.forEach(o => { counts[o.status] = (counts[o.status] || 0) + 1 })
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="px-4 md:px-6 pt-4 pb-3 shrink-0">
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-xl font-bold text-gray-800">Đơn Hàng</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-gray-800">Đơn Hàng</h1>
+            <div className="flex bg-gray-100 rounded-xl p-0.5 gap-0.5">
+              <button onClick={() => setActiveTab('orders')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'orders' ? 'bg-white shadow text-orange-600' : 'text-gray-500'}`}>
+                <Package size={13}/> Tại quán
+                {nonDeliveryOrders.filter(o => o.status === 'pending' || o.status === 'awaiting_confirm').length > 0 && (
+                  <span className="bg-orange-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                    {nonDeliveryOrders.filter(o => o.status === 'pending' || o.status === 'awaiting_confirm').length}
+                  </span>
+                )}
+              </button>
+              <button onClick={() => setActiveTab('delivery')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'delivery' ? 'bg-white shadow text-orange-600' : 'text-gray-500'}`}>
+                <Truck size={13}/> Giao hàng
+                {deliveryOrders.filter(o => o.status === 'pending' || o.status === 'awaiting_confirm').length > 0 && (
+                  <span className="bg-orange-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                    {deliveryOrders.filter(o => o.status === 'pending' || o.status === 'awaiting_confirm').length}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
           {/* hidden audio beep for web orders */}
           <audio ref={audioRef} src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAA..." preload="auto" style={{display:'none'}} />
           <div className="flex items-center gap-2">
@@ -315,7 +367,7 @@ export default function DonHangPage() {
                   <div className="min-w-0">
                     <p className="font-bold text-gray-800 text-sm">#{o.order_code}</p>
                     <p className="text-xs text-gray-400">
-                      {o.table_number ? `Bàn ${o.table_number}` : 'Mang về'} · {Number(o.total_amount).toLocaleString('vi-VN')}đ
+                      {o.order_type === 'delivery' ? '🛵 Giao hàng' : o.table_number ? `Bàn ${o.table_number}` : 'Mang về'} · <strong>{Number(o.total_amount).toLocaleString('vi-VN')}đ</strong>
                     </p>
                   </div>
                   <button
@@ -383,3 +435,5 @@ export default function DonHangPage() {
     </div>
   )
 }
+
+// This file is complete - delivery tab is in a separate component

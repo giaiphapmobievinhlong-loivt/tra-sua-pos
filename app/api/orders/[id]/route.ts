@@ -15,6 +15,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           pay_method = ${pay_method || null}
         WHERE id = ${id}
       `
+    } else if (status !== undefined && pay_method !== undefined) {
+      // approve + start (e.g. delivery approve pay)
+      await sql`UPDATE orders SET status = ${status}, is_paid = true, pay_method = ${pay_method} WHERE id = ${id}`
     } else if (status !== undefined) {
       await sql`UPDATE orders SET status = ${status} WHERE id = ${id}`
     } else if (is_paid !== undefined) {

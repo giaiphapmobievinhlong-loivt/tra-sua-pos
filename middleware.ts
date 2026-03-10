@@ -7,15 +7,14 @@ const JWT_SECRET = new TextEncoder().encode(
 
 // Role → allowed page prefixes
 const ROLE_ROUTES: Record<string, string[]> = {
-  staff:   ['/ban-hang', '/thu-chi', '/don-hang'],
-  manager: ['/ban-hang', '/thu-chi', '/don-hang', '/bao-cao'],
-  admin:   ['/ban-hang', '/thu-chi', '/don-hang', '/bao-cao', '/quan-ly', '/debug'],
+  staff:   ['/ban-hang', '/thu-chi', '/don-hang', '/giao-hang'],
+  manager: ['/ban-hang', '/thu-chi', '/don-hang', '/giao-hang', '/bao-cao'],
+  admin:   ['/ban-hang', '/thu-chi', '/don-hang', '/giao-hang', '/bao-cao', '/quan-ly', '/debug'],
 }
 
 // Routes that never need auth check (public)
 function isPublic(pathname: string) {
   return (
-    pathname === '/' ||
     pathname.startsWith('/login') ||
     pathname.startsWith('/order') ||
     pathname.startsWith('/api/auth') ||
@@ -23,6 +22,7 @@ function isPublic(pathname: string) {
     pathname.startsWith('/api/debug') ||
     pathname.startsWith('/api/public') ||
     pathname.startsWith('/api/products') ||
+    pathname.startsWith('/api/settings') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon')
   )
@@ -30,6 +30,13 @@ function isPublic(pathname: string) {
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
+
+  // Root path: redirect based on auth status
+  if (pathname === '/') {
+    const token = req.cookies.get('token')?.value
+    if (!token) return NextResponse.redirect(new URL('/order', req.url))
+    // Has token → let through, will redirect to /ban-hang below after role check
+  }
 
   // Always allow public paths
   if (isPublic(pathname)) return NextResponse.next()

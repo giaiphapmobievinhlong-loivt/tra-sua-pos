@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Pencil, Trash2, Package, Layers, Users, X, Check, Eye, EyeOff, Tag, Percent, DollarSign, ToggleLeft, ToggleRight, QrCode, Printer, ExternalLink } from 'lucide-react'
+import { Plus, Pencil, Trash2, Package, Layers, Users, X, Check, Eye, EyeOff, Tag, Percent, DollarSign, ToggleLeft, ToggleRight, QrCode, Printer, ExternalLink, Wrench } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────
 interface Category {
@@ -29,7 +29,7 @@ interface User {
   created_at: string
 }
 
-type Tab = 'products' | 'categories' | 'users' | 'discounts' | 'qr'
+type Tab = 'products' | 'categories' | 'users' | 'discounts' | 'qr' | 'settings' | 'settings'
 
 // ─── Modal wrapper ────────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -915,6 +915,93 @@ function QrTab() {
   )
 }
 
+
+
+// ─── Settings Tab ─────────────────────────────────────────
+function SettingsTab() {
+  const [deliveryFee, setDeliveryFee] = useState('15000')
+  const [saving, setSaving]           = useState(false)
+  const [saved, setSaved]             = useState(false)
+  const [loading, setLoading]         = useState(true)
+
+  useEffect(() => {
+    fetch('/api/settings').then(r => r.json()).then(d => {
+      if (d.delivery_fee) setDeliveryFee(d.delivery_fee)
+      setLoading(false)
+    }).catch(() => setLoading(false))
+  }, [])
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ delivery_fee: deliveryFee }),
+      })
+      const data = await res.json()
+      if (data.success) { setSaved(true); setTimeout(() => setSaved(false), 2000) }
+    } finally { setSaving(false) }
+  }
+
+  const feeNum = Number(deliveryFee) || 0
+
+  return (
+    <div className="max-w-lg space-y-6">
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+        <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+          🛵 Cài đặt giao hàng
+        </h3>
+        {loading ? (
+          <p className="text-sm text-gray-400">Đang tải...</p>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-bold text-gray-700 block mb-1.5">
+                Phí giao hàng cố định
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  value={deliveryFee}
+                  onChange={e => setDeliveryFee(e.target.value)}
+                  className="flex-1 text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  placeholder="15000"
+                  min="0"
+                  step="1000"
+                />
+                <span className="text-sm text-gray-500 font-semibold shrink-0">đồng</span>
+              </div>
+              {feeNum > 0 && (
+                <p className="text-xs text-orange-500 mt-1 font-semibold">
+                  = {feeNum.toLocaleString('vi-VN')}đ / đơn
+                </p>
+              )}
+              {feeNum === 0 && (
+                <p className="text-xs text-green-500 mt-1 font-semibold">Giao hàng miễn phí</p>
+              )}
+            </div>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-bold py-2.5 rounded-xl transition-all">
+              {saved ? '✓ Đã lưu!' : saving ? 'Đang lưu...' : 'Lưu cài đặt'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
+        <p className="text-xs font-bold text-blue-700 mb-1">ℹ️ Lưu ý</p>
+        <p className="text-xs text-blue-600">
+          Phí giao hàng sẽ được hiển thị cho khách trên trang đặt món và cộng vào tổng tiền.
+          Thay đổi có hiệu lực ngay với đơn mới.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'products', label: 'Sản Phẩm', icon: Package },
@@ -922,6 +1009,7 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'users', label: 'Nhân Viên', icon: Users },
   { id: 'discounts', label: 'Khuyến Mãi', icon: Tag },
   { id: 'qr', label: 'QR Bàn', icon: QrCode },
+  { id: 'settings', label: 'Cài Đặt', icon: ToggleRight },
 ]
 
 export default function QuanLyPage() {
@@ -966,6 +1054,7 @@ export default function QuanLyPage() {
       {tab === 'users' && <UsersTab />}
       {tab === 'discounts' && <DiscountsTab />}
       {tab === 'qr' && <QrTab />}
+      {tab === 'settings' && <SettingsTab />}
     </div>
   )
 }
