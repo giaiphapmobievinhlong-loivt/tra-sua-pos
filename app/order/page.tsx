@@ -35,7 +35,7 @@ export default function OrderPage() {
   const [deliveryFee, setDeliveryFee]   = useState(15000)
   const [loading, setLoading]           = useState(false)
   const [errors, setErrors]             = useState<Record<string, string>>({})
-  const [addressSuggestions, setAddressSuggestions] = useState<{description: string; place_id: string}[]>([])
+  const [addressSuggestions, setAddressSuggestions] = useState<{description: string; place_id: string; main_text?: string; secondary_text?: string}[]>([])
   const [showSuggestions, setShowSuggestions]       = useState(false)
   const [addressLoading, setAddressLoading]         = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -431,11 +431,14 @@ export default function OrderPage() {
                             <button key={s.place_id} onMouseDown={() => selectAddress(s.description)}
                               className="w-full text-left px-4 py-3 text-sm hover:bg-orange-50 border-b border-gray-50 last:border-0 flex items-start gap-2">
                               <span className="text-orange-400 mt-0.5 shrink-0">📍</span>
-                              <span className="text-gray-700 leading-snug">{s.description}</span>
+                              <span className="leading-snug">
+                                <span className="font-semibold text-gray-800 block">{s.main_text || s.description}</span>
+                                {s.secondary_text && <span className="text-xs text-gray-400">{s.secondary_text}</span>}
+                              </span>
                             </button>
                           ))}
-                          <div className="px-3 py-1.5 bg-gray-50 flex items-center justify-end gap-1">
-                            <img src="https://maps.gstatic.com/mapfiles/api-3/images/powered-by-google-on-white3.png" alt="Google" className="h-3.5 opacity-60" />
+                          <div className="px-3 py-1.5 bg-gray-50 flex items-center justify-end">
+                            <span className="text-[10px] text-gray-300">powered by Goong</span>
                           </div>
                         </div>
                       )}
