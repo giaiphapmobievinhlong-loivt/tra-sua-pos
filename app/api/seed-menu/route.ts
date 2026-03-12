@@ -4,10 +4,10 @@ import sql from '@/lib/db'
 
 export async function GET() {
   try {
-    // Xóa sạch products và categories cũ
+    // Xóa sạch theo đúng thứ tự foreign key
     await sql`DELETE FROM order_items WHERE product_id IN (SELECT id FROM products)`
     await sql`DELETE FROM products`
-    await sql`DELETE FROM categories`
+    await sql`TRUNCATE categories CASCADE`
 
     // Seed categories mới
     await sql`
