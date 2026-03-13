@@ -70,7 +70,7 @@ function DailyReport() {
   const fetch_ = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/reports?date=${date}`)
+      const res = await fetch(`/api/reports?date=${date}&t=${Date.now()}`)
       setData(await res.json())
     } finally { setLoading(false) }
   }, [date])
@@ -167,7 +167,7 @@ function MonthlyReport() {
   const fetch_ = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/reports/monthly?year=${year}&month=${month}`)
+      const res = await fetch(`/api/reports/monthly?year=${year}&month=${month}&t=${Date.now()}`)
       setData(await res.json())
     } finally { setLoading(false) }
   }, [year, month])
