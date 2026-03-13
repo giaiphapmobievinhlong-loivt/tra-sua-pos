@@ -110,6 +110,7 @@ export async function GET(req: NextRequest) {
       avg_order: Math.round(Number(stats[0].avg_order)),
       estimated_profit: Number(stats[0].total_revenue) + Number(thuChi[0].total_thu) - Number(thuChi[0].total_chi),
       recent_orders, hourly,
+      _debug: { dateStart, dateEnd, raw_count: stats[0].order_count }
     })
   } catch (error) {
     console.error(error)
