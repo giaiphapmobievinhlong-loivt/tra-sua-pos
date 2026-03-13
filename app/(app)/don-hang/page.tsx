@@ -185,14 +185,14 @@ function OrderCard({ order, onStatusChange, onPay, onCancel }: {
             {order.status !== 'completed' && (
               <button onClick={() => onCancel(order.id)} className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-red-50 text-red-500 hover:bg-red-100 border border-red-100 active:scale-95">Hủy</button>
             )}
-            {!order.is_paid && (
+            {!order.is_paid && order.source !== 'web' && (
               <button onClick={() => onPay(order)} className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 active:scale-95 flex items-center gap-1">
                 <CreditCard size={11} /> Thanh toán
               </button>
             )}
-            {nextStatus && (
-              <button onClick={() => onStatusChange(order.id, nextStatus)} className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-orange-500 text-white hover:bg-orange-600 active:scale-95">
-                {nextLabel}
+            {nextStatus && !(order.source === 'web' && order.status === 'pending') && (
+              <button onClick={() => onStatusChange(order.id, nextStatus)} className="flex-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-orange-500 text-white hover:bg-orange-600 active:scale-95 text-center">
+                ☕ {nextLabel}
               </button>
             )}
           </div>

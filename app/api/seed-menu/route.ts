@@ -6,8 +6,9 @@ export async function GET() {
   try {
     // Xóa sạch theo đúng thứ tự foreign key
     await sql`DELETE FROM order_items WHERE product_id IN (SELECT id FROM products)`
+    await sql`UPDATE order_items SET product_id = NULL WHERE product_id IS NOT NULL`
     await sql`DELETE FROM products`
-    await sql`TRUNCATE categories CASCADE`
+    await sql`DELETE FROM categories`
 
     // Seed categories mới
     await sql`
