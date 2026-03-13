@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
       daily: daily.map(d => ({ ...d, revenue: Number(d.revenue), order_count: Number(d.order_count) })),
       top_products: top_products.map(p => ({ ...p, total_qty: Number(p.total_qty), total_revenue: Number(p.total_revenue) })),
       trend: trend.map(t => ({ ...t, revenue: Number(t.revenue), order_count: Number(t.order_count) })),
-    })
+    }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } })
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: String(error) }, { status: 500 })

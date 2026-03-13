@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
       estimated_profit: Number(stats[0].total_revenue) + Number(thuChi[0].total_thu) - Number(thuChi[0].total_chi),
       recent_orders, hourly,
       _debug: { utcStart, utcEnd, raw_count: stats[0].order_count }
-    })
+    }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } })
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: String(error) }, { status: 500 })
