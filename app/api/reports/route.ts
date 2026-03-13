@@ -9,7 +9,10 @@ export async function GET(req: NextRequest) {
     const year  = Number(req.nextUrl.searchParams.get('year')  || new Date().getFullYear())
     const month = Number(req.nextUrl.searchParams.get('month') || new Date().getMonth() + 1)
 
-    // VN day range using offset arithmetic (Neon doesn't have tz database)
+    // Convert VN date to UTC for TIMESTAMP (no tz) column comparison
+    const utcStart = new Date(`${date}T00:00:00+07:00`).toISOString().replace('T', ' ').replace('Z', '')
+    const utcEnd   = new Date(`${date}T23:59:59+07:00`).toISOString().replace('T', ' ').replace('Z', '')
+    // Keep for monthly queries
     const dateStart = `${date}T00:00:00+07:00`
     const dateEnd   = `${date}T23:59:59+07:00`
 
@@ -76,12 +79,13 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Daily report ───────────────────────────────────────────
+    console.log('[reports] daily query', { dateStart, dateEnd })
     const stats = await sql`
       SELECT COALESCE(SUM(total_amount),0) as total_revenue,
              COUNT(*) as order_count,
              COALESCE(AVG(total_amount),0) as avg_order
       FROM orders
-      WHERE created_at >= ${dateStart}::timestamptz AND created_at <= ${dateEnd}::timestamptz
+      WHERE created_at >= ${utcStart}::timestamp AND created_at <= ${utcEnd}::timestamp
         AND status != 'cancelled'
     `
     const thuChi = await sql`
@@ -92,7 +96,7 @@ export async function GET(req: NextRequest) {
     const recent_orders = await sql`
       SELECT o.*, u.username FROM orders o
       LEFT JOIN users u ON o.user_id = u.id
-      WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at <= ${dateEnd}::timestamptz
+      WHERE o.created_at >= ${utcStart}::timestamp AND o.created_at <= ${utcEnd}::timestamp
       ORDER BY o.created_at DESC LIMIT 10
     `
     const hourly = await sql`
@@ -100,7 +104,7 @@ export async function GET(req: NextRequest) {
              COALESCE(SUM(total_amount),0) as revenue,
              COUNT(*) as count
       FROM orders
-      WHERE created_at >= ${dateStart}::timestamptz AND created_at <= ${dateEnd}::timestamptz
+      WHERE created_at >= ${utcStart}::timestamp AND created_at <= ${utcEnd}::timestamp
         AND status != 'cancelled'
       GROUP BY hour ORDER BY hour
     `
@@ -110,7 +114,7 @@ export async function GET(req: NextRequest) {
       avg_order: Math.round(Number(stats[0].avg_order)),
       estimated_profit: Number(stats[0].total_revenue) + Number(thuChi[0].total_thu) - Number(thuChi[0].total_chi),
       recent_orders, hourly,
-      _debug: { dateStart, dateEnd, raw_count: stats[0].order_count }
+      _debug: { utcStart, utcEnd, raw_count: stats[0].order_count }
     })
   } catch (error) {
     console.error(error)
