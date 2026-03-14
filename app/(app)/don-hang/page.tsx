@@ -393,7 +393,7 @@ export default function DonHangPage() {
               }`}>
               <Icon size={12} /> {label}
               {(counts[key] || 0) > 0 && (
-                <span className={`ml-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeFilter === key ? 'bg-white/30' : 'bg-gray-100 text-gray-500'}`}>
+                <span className={`ml-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeFilter === key ? 'bg-white text-orange-500' : 'bg-orange-500 text-white'}`}>
                   {counts[key]}
                 </span>
               )}
