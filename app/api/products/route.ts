@@ -13,13 +13,13 @@ export async function GET() {
       SELECT p.*, c.name as category_name
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
-      WHERE p.is_active = true
+      WHERE p.is_active IS NOT FALSE
       ORDER BY p.sort_order ASC NULLS LAST, p.id ASC
     `
     const categories = await sql`
       SELECT DISTINCT c.id, c.name, c.slug
       FROM categories c
-      INNER JOIN products p ON p.category_id = c.id AND p.is_active = true
+      INNER JOIN products p ON p.category_id = c.id AND p.is_active IS NOT FALSE
       ORDER BY c.name
     `
     return NextResponse.json({ products, categories })
