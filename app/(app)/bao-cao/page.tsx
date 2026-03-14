@@ -433,7 +433,7 @@ function OrderHistory() {
   })
 
   const totalRevenue = filtered
-    .filter(o => o.status !== 'cancelled')
+    .filter(o => o.status !== 'cancelled' && o.is_paid)
     .reduce((s, o) => s + Number(o.total_amount), 0)
 
   return (
@@ -523,7 +523,7 @@ function OrderHistory() {
             const cashRev     = cashOrders.reduce((s, o) => s + Number(o.total_amount), 0)
             const transferRev = transferOrders.reduce((s, o) => s + Number(o.total_amount), 0)
             const unpaidRev   = unpaidOrders.reduce((s, o) => s + Number(o.total_amount), 0)
-            const total = cashRev + transferRev + unpaidRev || 1
+            const total = cashRev + transferRev || 1
             return (
               <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
                 <p className="text-xs font-bold text-gray-500 mb-3">💳 Hình thức thanh toán</p>

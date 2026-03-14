@@ -15,7 +15,6 @@ export async function GET(req: NextRequest) {
     const lastDayPad = String(lastDay).padStart(2, '0')
     const utcEnd = new Date(`${year}-${monthPad}-${lastDayPad}T23:59:59+07:00`).toISOString().replace('T', ' ').replace('Z', '').split('.')[0]
 
-    console.log('[monthly]', { utcStart, utcEnd })
     // Daily breakdown — group by VN date (UTC+7)
     const daily = await sql`
       SELECT
@@ -25,6 +24,7 @@ export async function GET(req: NextRequest) {
       FROM orders
       WHERE created_at >= ${utcStart}::timestamp AND created_at <= ${utcEnd}::timestamp
         AND status != 'cancelled'
+          AND is_paid = true
       GROUP BY day ORDER BY day
     `
 
@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
       FROM orders
       WHERE created_at >= ${utcStart}::timestamp AND created_at <= ${utcEnd}::timestamp
         AND status != 'cancelled'
+          AND is_paid = true
     `
 
     // Thu/Chi for the month
@@ -60,6 +61,7 @@ export async function GET(req: NextRequest) {
       JOIN orders o ON o.id = oi.order_id
       WHERE o.created_at >= ${utcStart}::timestamp AND o.created_at <= ${utcEnd}::timestamp
         AND o.status != 'cancelled'
+        AND o.is_paid = true
       GROUP BY oi.product_name
       ORDER BY total_qty DESC LIMIT 5
     `
@@ -75,6 +77,7 @@ export async function GET(req: NextRequest) {
       FROM orders
       WHERE created_at >= ${trend6StartStr}::timestamp
         AND status != 'cancelled'
+          AND is_paid = true
       GROUP BY month_key ORDER BY month_key
     `
 

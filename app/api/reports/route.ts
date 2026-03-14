@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
         FROM orders
         WHERE created_at >= ${utcMonthStart}::timestamp AND created_at < ${utcNextMonth}::timestamp
           AND status != 'cancelled'
+          AND is_paid = true
       `
       const thuChi = await sql`
         SELECT COALESCE(SUM(CASE WHEN type='thu' THEN amount ELSE 0 END),0) as total_thu,
@@ -45,6 +46,7 @@ export async function GET(req: NextRequest) {
         FROM orders
         WHERE created_at >= ${utcMonthStart}::timestamp AND created_at < ${utcNextMonth}::timestamp
           AND status != 'cancelled'
+          AND is_paid = true
         GROUP BY ((created_at + interval '7 hours')::date)
         ORDER BY day
       `
@@ -56,6 +58,7 @@ export async function GET(req: NextRequest) {
         JOIN orders o ON o.id = oi.order_id
         WHERE o.created_at >= ${utcMonthStart}::timestamp AND o.created_at < ${utcNextMonth}::timestamp
           AND o.status != 'cancelled'
+          AND o.is_paid = true
         GROUP BY oi.product_name
         ORDER BY total_qty DESC LIMIT 5
       `
@@ -67,6 +70,7 @@ export async function GET(req: NextRequest) {
         WHERE created_at >= (${utcMonthStart}::timestamp - interval '5 months')
           AND created_at < ${utcNextMonth}::timestamp
           AND status != 'cancelled'
+          AND is_paid = true
         GROUP BY month_key ORDER BY month_key
       `
       return NextResponse.json({
@@ -89,6 +93,7 @@ export async function GET(req: NextRequest) {
       FROM orders
       WHERE created_at >= ${utcStart}::timestamp AND created_at <= ${utcEnd}::timestamp
         AND status != 'cancelled'
+          AND is_paid = true
     `
     const thuChi = await sql`
       SELECT COALESCE(SUM(CASE WHEN type='thu' THEN amount ELSE 0 END),0) as total_thu,
@@ -108,6 +113,7 @@ export async function GET(req: NextRequest) {
       FROM orders
       WHERE created_at >= ${utcStart}::timestamp AND created_at <= ${utcEnd}::timestamp
         AND status != 'cancelled'
+          AND is_paid = true
       GROUP BY hour ORDER BY hour
     `
     return NextResponse.json({
