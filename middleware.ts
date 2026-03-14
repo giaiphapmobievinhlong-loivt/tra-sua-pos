@@ -9,7 +9,7 @@ const JWT_SECRET = new TextEncoder().encode(
 const ROLE_ROUTES: Record<string, string[]> = {
   staff:   ['/ban-hang', '/thu-chi', '/don-hang', '/giao-hang'],
   manager: ['/ban-hang', '/thu-chi', '/don-hang', '/giao-hang', '/bao-cao'],
-  admin:   ['/ban-hang', '/thu-chi', '/don-hang', '/giao-hang', '/bao-cao', '/quan-ly', '/debug'],
+  admin:   ['/ban-hang', '/thu-chi', '/don-hang', '/giao-hang', '/bao-cao', '/quan-ly'],
 }
 
 // Routes that never need auth check (public)
@@ -19,7 +19,6 @@ function isPublic(pathname: string) {
     pathname.startsWith('/order') ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/setup') ||
-    pathname.startsWith('/api/debug') ||
     pathname.startsWith('/api/public') ||
     pathname.startsWith('/api/products') ||
     pathname.startsWith('/api/settings') ||

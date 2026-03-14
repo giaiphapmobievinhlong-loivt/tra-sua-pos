@@ -79,7 +79,6 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Daily report ───────────────────────────────────────────
-    console.log('[reports] daily query', { dateStart, dateEnd })
     const stats = await sql`
       SELECT COALESCE(SUM(total_amount),0) as total_revenue,
              COUNT(*) as order_count,
@@ -114,7 +113,6 @@ export async function GET(req: NextRequest) {
       avg_order: Math.round(Number(stats[0].avg_order)),
       estimated_profit: Number(stats[0].total_revenue) + Number(thuChi[0].total_thu) - Number(thuChi[0].total_chi),
       recent_orders, hourly,
-      _debug: { utcStart, utcEnd, raw_count: stats[0].order_count }
     }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } })
   } catch (error) {
     console.error(error)

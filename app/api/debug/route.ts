@@ -26,8 +26,8 @@ export async function GET() {
       vn_date_today: vnNow.toISOString().split("T")[0],
       orders_count: allOrders.length,
       orders: allOrders,
-      order_columns: columns.map((c) => c.column_name),
-      item_columns: itemColumns.map((c) => c.column_name),
+      order_columns: columns.map((c: any) => c.column_name),
+      item_columns: itemColumns.map((c: any) => c.column_name),
     })
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 })

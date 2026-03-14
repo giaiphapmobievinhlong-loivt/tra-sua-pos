@@ -1,20 +1,21 @@
-# 🧋 Trà Sữa POS
+# 🧋 Trà Sữa Nhà Mèo — POS System
 
 Hệ thống quản lý bán hàng cho quán trà sữa. Xây dựng bằng **Next.js 14** + **PostgreSQL (Neon)**, deploy lên **Vercel**.
 
 ## Tính năng
 
-- 🛒 **Bán Hàng**: POS giao diện nhanh, hỗ trợ giỏ hàng, thanh toán, tiền thối
-- 💰 **Thu Chi**: Quản lý dòng tiền hàng ngày (nhập nguyên liệu, chi phí khác)
-- 📋 **Đơn Hàng**: Xem lịch sử đơn theo ngày, chi tiết từng đơn
-- 📊 **Báo Cáo**: Doanh thu, lợi nhuận ước tính, biểu đồ theo giờ
+- 🛒 **Bán Hàng** — POS nhanh, hỗ trợ giỏ hàng, combo, discount, thanh toán tiền mặt/chuyển khoản
+- 🌐 **Đặt hàng online** — Khách order qua web `/order`, thanh toán MoMo/chuyển khoản, theo dõi đơn real-time
+- 💰 **Thu Chi** — Quản lý dòng tiền hàng ngày
+- 📋 **Đơn Hàng** — Quản lý đơn tại quán & giao hàng, xác nhận thanh toán
+- 📊 **Báo Cáo** — Doanh thu theo ngày/tháng, biểu đồ theo giờ, top sản phẩm
+- ⚙️ **Quản Lý** — Menu, nhân viên, discount, QR bàn, cài đặt cửa hàng
 
 ## Cài đặt & Deploy
 
-### 1. Tạo Database (Neon DB - miễn phí)
-1. Đăng ký tài khoản tại [neon.tech](https://neon.tech)
-2. Tạo project mới
-3. Copy **Connection String** (dạng `postgresql://...`)
+### 1. Tạo Database (Neon DB)
+1. Đăng ký tại [neon.tech](https://neon.tech)
+2. Tạo project → copy **Connection String**
 
 ### 2. Deploy lên Vercel
 1. Push code lên GitHub
@@ -22,68 +23,36 @@ Hệ thống quản lý bán hàng cho quán trà sữa. Xây dựng bằng **Ne
 3. Thêm Environment Variables:
    ```
    DATABASE_URL=postgresql://your-neon-connection-string
-   JWT_SECRET=random-secret-string-ít-nhất-32-ký-tự
+   JWT_SECRET=random-secret-ít-nhất-32-ký-tự
+   GOONG_API_KEY=your-goong-api-key
    ```
 4. Deploy!
 
 ### 3. Khởi tạo Database
-Sau khi deploy, truy cập:
+Sau khi deploy, truy cập **một lần**:
 ```
-https://your-app.vercel.app/api/setup
+https://your-domain.vercel.app/api/setup
 ```
-Sẽ tự động tạo tables và thêm dữ liệu mẫu.
 
-### Tài khoản mặc định
+### 4. Seed menu
+```
+https://your-domain.vercel.app/api/seed-menu?secret=YOUR_JWT_SECRET_FIRST_8_CHARS
+```
+
+## Tài khoản mặc định
+
 | Username | Password | Role |
-|----------|----------|------|
-| admin | admin123 | admin |
-| thu | staff123 | staff |
+|---|---|---|
+| admin | admin123 | Admin |
+| thu | staff123 | Staff |
 
-## Chạy Local
-
-```bash
-# Cài dependencies
-npm install
-
-# Copy env
-cp .env.example .env
-# Điền DATABASE_URL và JWT_SECRET vào .env
-
-# Khởi tạo DB
-curl http://localhost:3000/api/setup
-
-# Chạy dev
-npm run dev
-```
+> ⚠️ Đổi mật khẩu ngay sau khi deploy!
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14 (App Router), Tailwind CSS, Recharts
+- **Frontend**: Next.js 14 App Router, Tailwind CSS, Recharts
 - **Backend**: Next.js API Routes
-- **Database**: PostgreSQL via Neon (serverless)
-- **Auth**: JWT (jose) + HTTP-only cookies
+- **Database**: PostgreSQL (Neon serverless)
 - **Deploy**: Vercel
-
-## Cấu trúc thư mục
-
-```
-app/
-├── (app)/           # Pages cần auth
-│   ├── ban-hang/    # Trang bán hàng POS
-│   ├── thu-chi/     # Quản lý thu chi
-│   ├── don-hang/    # Lịch sử đơn hàng
-│   └── bao-cao/     # Báo cáo doanh thu
-├── api/             # API Routes
-│   ├── auth/        # Login/Logout
-│   ├── products/    # Danh sách sản phẩm
-│   ├── orders/      # Tạo & xem đơn hàng
-│   ├── transactions/# Thu chi
-│   ├── reports/     # Báo cáo
-│   └── setup/       # Khởi tạo DB
-├── login/           # Trang đăng nhập
-components/
-├── Sidebar.tsx      # Sidebar navigation
-lib/
-├── db.ts            # Kết nối database
-└── auth.ts          # JWT utilities
-```
+- **Auth**: JWT (jose) + bcryptjs
+- **Maps**: Goong.io (address autocomplete)

@@ -1,8 +1,11 @@
 export const dynamic = 'force-dynamic'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (req.nextUrl.searchParams.get('secret') !== process.env.JWT_SECRET?.slice(0, 8)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
   try {
     // Xóa sạch theo đúng thứ tự foreign key
     await sql`DELETE FROM order_items WHERE product_id IN (SELECT id FROM products)`
