@@ -1,4 +1,5 @@
 'use client'
+import { MOMO_QR } from '@/lib/constants'
 import { apiFetch } from '@/lib/apiFetch'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Calendar, Filter, Clock, ChefHat, CheckCircle, XCircle, Package, CreditCard, RefreshCw, Banknote, QrCode, AlertCircle, Globe, Truck, MapPin } from 'lucide-react'
@@ -13,6 +14,8 @@ interface Order {
   source?: string; customer_name?: string; customer_phone?: string
   delivery_address?: string; delivery_fee?: number; order_type?: string
 }
+
+const fmt = (n: number) => Number(n).toLocaleString('vi-VN')
 
 const STATUSES = [
   { key: 'all',               label: 'Tất cả',      icon: Filter,      color: '' },
@@ -36,7 +39,6 @@ const NEXT_LABEL: Record<string, string> = {
 const NEXT_STATUS_NORMAL: Record<string, string> = { pending: 'brewing', awaiting_confirm: 'brewing', brewing: 'ready', ready: 'completed' }
 const NEXT_LABEL_NORMAL: Record<string, string> = { pending: 'Đang pha', awaiting_confirm: '✓ Duyệt & Pha', brewing: 'Sẵn sàng', ready: 'Hoàn thành' }
 const STATUS_EMOJI: Record<string, string> = { pending: '⏰', awaiting_confirm: '💳', brewing: '☕', delivering: '🛵', ready: '📦', completed: '✔', cancelled: '✖' }
-const MOMO_QR = 'https://res.cloudinary.com/loivo/image/upload/v1772726400/thanhtoanmomo_iyoxds.jpg'
 const QUICK = [10000, 20000, 50000, 100000, 200000, 500000]
 type PayMethod = 'cash' | 'transfer'
 
@@ -62,7 +64,7 @@ function PayModal({ order, onClose, onPaid }: {
             {order.table_number
               ? <span className="text-xs bg-orange-100 text-orange-700 font-semibold px-2 py-0.5 rounded-full">Bàn {order.table_number}</span>
               : <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Mang đi</span>}
-            <span className="text-sm text-gray-500">· <strong className="text-orange-500">{order.total_amount.toLocaleString('vi-VN')}đ</strong></span>
+            <span className="text-sm text-gray-500">· <strong className="text-orange-500">{fmt(order.total_amount)}đ</strong></span>
           </div>
         </div>
         <div className="px-5 pb-3">
@@ -88,7 +90,7 @@ function PayModal({ order, onClose, onPaid }: {
             {amount > 0 && (
               <div className="flex justify-between py-2 border-t border-gray-100">
                 <span className="text-sm text-gray-500">Tiền thối</span>
-                <span className={`font-bold ${change >= 0 ? 'text-green-600' : 'text-red-500'}`}>{change.toLocaleString('vi-VN')}đ</span>
+                <span className={`font-bold ${change >= 0 ? 'text-green-600' : 'text-red-500'}`}>{fmt(change)}đ</span>
               </div>
             )}
             <div className="flex gap-3">
@@ -102,7 +104,7 @@ function PayModal({ order, onClose, onPaid }: {
         {method === 'transfer' && (
           <div className="px-5 pb-5 space-y-3">
             <div className="rounded-2xl bg-pink-50 border border-pink-100 p-4 text-center">
-              <p className="text-xs font-semibold text-pink-600 mb-3">Quét mã chuyển <strong>{order.total_amount.toLocaleString('vi-VN')}đ</strong></p>
+              <p className="text-xs font-semibold text-pink-600 mb-3">Quét mã chuyển <strong>{fmt(order.total_amount)}đ</strong></p>
               <img src={MOMO_QR} alt="QR" className="w-56 h-auto rounded-xl shadow mx-auto" />
               <p className="text-xs text-pink-400 mt-2">MoMo · VietQR · Napas 247</p>
             </div>
@@ -151,7 +153,9 @@ function OrderCard({ order, onStatusChange, onPay, onCancel }: {
       <div className="px-4 pb-2 flex items-center gap-1.5">
         {order.is_paid
           ? <span className="text-[10px] bg-green-50 text-green-600 border border-green-100 font-semibold px-2 py-0.5 rounded-full">✓ Đã TT</span>
-          : <span className="text-[10px] bg-red-50 text-red-500 border border-red-100 font-semibold px-2 py-0.5 rounded-full">Chưa TT</span>}
+          : order.status === 'awaiting_confirm'
+            ? <span className="text-[10px] bg-purple-50 text-purple-600 border border-purple-100 font-semibold px-2 py-0.5 rounded-full">💳 Chờ duyệt</span>
+            : <span className="text-[10px] bg-red-50 text-red-500 border border-red-100 font-semibold px-2 py-0.5 rounded-full">Chưa TT</span>}
         {order.pay_method === 'cash' && <span className="text-[10px] bg-green-50 text-green-600 border border-green-100 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Banknote size={9} /> Tiền mặt</span>}
         {order.pay_method === 'transfer' && <span className="text-[10px] bg-pink-50 text-pink-600 border border-pink-100 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><QrCode size={9} /> CK</span>}
       </div>
@@ -160,7 +164,7 @@ function OrderCard({ order, onStatusChange, onPay, onCancel }: {
           <div key={item.id} className="text-sm">
             <div className="flex justify-between">
               <span className="text-gray-700">🧋 {item.product_name} <span className="text-gray-400 text-xs">×{item.quantity}</span></span>
-              <span className="font-medium shrink-0 ml-2">{item.subtotal.toLocaleString('vi-VN')}đ</span>
+              <span className="font-medium shrink-0 ml-2">{fmt(item.subtotal)}đ</span>
             </div>
             {item.item_note && <p className="text-[11px] text-orange-500 italic ml-5">✏️ {item.item_note}</p>}
           </div>
@@ -173,13 +177,13 @@ function OrderCard({ order, onStatusChange, onPay, onCancel }: {
             {order.customer_name && <p className="text-xs text-blue-600">👤 {order.customer_name}</p>}
             {order.customer_phone && <p className="text-xs text-blue-600">📞 {order.customer_phone}</p>}
             {order.delivery_fee && Number(order.delivery_fee) > 0 && (
-              <p className="text-xs text-blue-600">🛵 Phí ship: {Number(order.delivery_fee).toLocaleString('vi-VN')}đ</p>
+              <p className="text-xs text-blue-600">🛵 Phí ship: {fmt(Number(order.delivery_fee))}đ</p>
             )}
           </div>
         )}
       </div>
       <div className="px-4 py-3 flex items-center justify-between gap-2">
-        <span className="font-bold text-gray-800 text-sm">{order.total_amount.toLocaleString('vi-VN')} <span className="text-orange-500">đ</span></span>
+        <span className="font-bold text-gray-800 text-sm"><span className="text-orange-500">{fmt(order.total_amount)}đ</span></span>
         {!isCancelled && (
           <div className="flex items-center gap-1.5 flex-wrap justify-end">
             {order.status !== 'completed' && (
@@ -346,7 +350,7 @@ export default function DonHangPage() {
             <span>{error}</span>
           </div>
         )}
-        {newWebOrders > 0 && (
+        {newWebOrders > 0 && activeTab !== 'delivery' && (
           <div className="mb-3 bg-blue-50 border border-blue-300 text-blue-700 px-4 py-2.5 rounded-xl flex items-center justify-between text-sm animate-pulse">
             <span className="flex items-center gap-2 font-bold">
               <Globe size={15}/> {newWebOrders} đơn mới từ website!
@@ -354,20 +358,20 @@ export default function DonHangPage() {
             <button onClick={() => setNewWebOrders(0)} className="text-blue-400 hover:text-blue-600 font-bold ml-2">✕</button>
           </div>
         )}
-        {awaitingConfirmOrders.length > 0 && (
+        {awaitingConfirmOrders.filter(o => activeTab === 'delivery' ? o.order_type === 'delivery' : o.order_type !== 'delivery').length > 0 && (
           <div className="mb-3 bg-purple-50 border border-purple-300 rounded-xl overflow-hidden">
             <div className="px-4 py-2.5 flex items-center justify-between">
               <span className="flex items-center gap-2 font-bold text-purple-700 text-sm">
-                💳 {awaitingConfirmOrders.length} đơn chờ duyệt thanh toán
+                💳 {awaitingConfirmOrders.filter(o => activeTab === 'delivery' ? o.order_type === 'delivery' : o.order_type !== 'delivery').length} đơn chờ duyệt thanh toán
               </span>
             </div>
             <div className="px-3 pb-3 space-y-2">
-              {awaitingConfirmOrders.map(o => (
+              {awaitingConfirmOrders.filter(o => activeTab === 'delivery' ? o.order_type === 'delivery' : o.order_type !== 'delivery').map(o => (
                 <div key={o.id} className="bg-white rounded-xl px-3 py-2.5 flex items-center justify-between gap-3 border border-purple-100">
                   <div className="min-w-0">
                     <p className="font-bold text-gray-800 text-sm">#{o.order_code}</p>
                     <p className="text-xs text-gray-400">
-                      {o.order_type === 'delivery' ? '🛵 Giao hàng' : o.table_number ? `Bàn ${o.table_number}` : 'Mang về'} · <strong>{Number(o.total_amount).toLocaleString('vi-VN')}đ</strong>
+                      {o.order_type === 'delivery' ? '🛵 Giao hàng' : o.table_number ? `Bàn ${o.table_number}` : 'Mang về'} · <strong>{fmt(o.total_amount)}đ</strong>
                     </p>
                   </div>
                   <button

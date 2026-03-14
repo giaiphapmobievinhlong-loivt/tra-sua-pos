@@ -70,7 +70,7 @@ function DailyReport() {
   const fetch_ = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/reports?date=${date}&t=${Date.now()}`)
+      const res = await fetch(`/api/reports?date=${date}&t=${Date.now()}`, { cache: 'no-store' })
       setData(await res.json())
     } finally { setLoading(false) }
   }, [date])
@@ -140,7 +140,7 @@ function DailyReport() {
                   <div>
                     <p className="text-sm font-semibold text-gray-800">#{o.order_code}</p>
                     <p className="text-xs text-gray-400">
-                      {new Date(o.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} · {o.username}
+                      {parseVNTime(o.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} · {o.username}
                     </p>
                   </div>
                   <p className="font-bold text-orange-600 text-sm">{fmt(o.total_amount)}đ</p>
@@ -167,7 +167,7 @@ function MonthlyReport() {
   const fetch_ = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/reports/monthly?year=${year}&month=${month}&t=${Date.now()}`)
+      const res = await fetch(`/api/reports/monthly?year=${year}&month=${month}&t=${Date.now()}`, { cache: 'no-store' })
       setData(await res.json())
     } finally { setLoading(false) }
   }, [year, month])
@@ -267,7 +267,7 @@ function MonthlyReport() {
             <div className="bg-gradient-to-r from-orange-500 to-orange-400 rounded-2xl p-4 text-white">
               <p className="text-orange-100 text-xs font-medium mb-1">🏆 Ngày doanh thu cao nhất</p>
               <p className="font-bold text-xl">
-                {new Date(maxDay.day).toLocaleDateString('vi-VN', { day: 'numeric', month: 'long' })}
+                {new Date(maxDay.day + 'T00:00:00+07:00').toLocaleDateString('vi-VN', { day: 'numeric', month: 'long' })}
               </p>
               <p className="text-orange-100 text-sm mt-1">{fmt(maxDay.revenue)}đ · {maxDay.order_count} đơn</p>
             </div>
@@ -353,7 +353,7 @@ function MonthlyReport() {
                 {data.daily.map(d => (
                   <div key={d.day} className="grid grid-cols-3 text-sm py-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 rounded-lg px-1">
                     <span className="text-gray-600 font-medium">
-                      {new Date(d.day).toLocaleDateString('vi-VN', { weekday: 'short', day: 'numeric', month: 'numeric' })}
+                      {new Date(d.day + 'T00:00:00+07:00').toLocaleDateString('vi-VN', { weekday: 'short', day: 'numeric', month: 'numeric' })}
                     </span>
                     <span className="text-right font-bold text-orange-600">{fmt(d.revenue)}đ</span>
                     <span className="text-right text-gray-500">{d.order_count} đơn</span>
@@ -411,7 +411,7 @@ function OrderHistory() {
         limited.map(date => fetch(`/api/orders?date=${date}`).then(r => r.json()))
       )
       const all: HistoryOrder[] = results.flatMap(r => r.orders || [])
-      all.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      all.sort((a, b) => parseVNTime(b.created_at).getTime() - parseVNTime(a.created_at).getTime())
       setOrders(all)
     } finally { setLoading(false) }
   }, [fromDate, toDate])
@@ -599,8 +599,8 @@ function OrderHistory() {
           const si = STATUS_INFO[order.status] || STATUS_INFO.completed
           const StatusIcon = si.icon
           const isOpen = expanded === order.id
-          const dateStr = new Date(order.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
-          const timeStr = new Date(order.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+          const dateStr = parseVNTime(order.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
+          const timeStr = parseVNTime(order.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
           return (
             <div key={order.id}
               className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden ${order.status === 'cancelled' ? 'opacity-60' : ''}`}>
@@ -670,6 +670,8 @@ function OrderHistory() {
 // ══════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ══════════════════════════════════════════════════════════════
+const parseVNTime = (ts: string) => { const s = ts?.toString() || ''; return new Date(s.replace(' ', 'T').replace(/(\.\d+)?$/, '+07:00')) }
+
 export default function BaoCaoPage() {
   const [tab, setTab] = useState<'daily' | 'monthly' | 'history'>('daily')
 

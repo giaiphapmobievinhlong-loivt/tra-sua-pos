@@ -151,14 +151,6 @@ function DeliveryCard({ order, onStatusChange, onCancel, onApprovePay }: {
               <CreditCard size={11} /> Duyệt TT
             </button>
           )}
-          {nextStatus && nextStatus !== 'brewing' || order.status === 'awaiting_confirm' ? null :
-            nextStatus && (
-              <button onClick={() => onStatusChange(order.id, nextStatus)}
-                className="flex-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-orange-500 text-white active:scale-95 text-center">
-                {NEXT_LABEL[order.status]}
-              </button>
-            )
-          }
           {nextStatus && order.status !== 'awaiting_confirm' && (
             <button onClick={() => onStatusChange(order.id, nextStatus)}
               className="flex-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-orange-500 text-white active:scale-95 text-center">

@@ -1,4 +1,5 @@
 'use client'
+import { MOMO_QR } from '@/lib/constants'
 import { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '@/lib/apiFetch'
 import {
@@ -14,7 +15,6 @@ interface Discount { id: number; name: string; type: 'percent'|'fixed'; value: n
 
 const QUICK_AMOUNTS = [10000, 20000, 50000, 100000, 200000, 500000]
 const TABLE_NUMBERS = ['1','2','3','4','5','6','7','8','9','10','11','12']
-const MOMO_QR = 'https://res.cloudinary.com/loivo/image/upload/v1772726400/thanhtoanmomo_iyoxds.jpg'
 type PayMethod = 'cash' | 'transfer'
 
 // ── Discount Selector ────────────────────────────────────────

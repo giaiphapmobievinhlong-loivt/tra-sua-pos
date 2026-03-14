@@ -1,8 +1,8 @@
 'use client'
+import { MOMO_QR } from '@/lib/constants'
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-const MOMO_QR = 'https://res.cloudinary.com/loivo/image/upload/v1772726400/thanhtoanmomo_iyoxds.jpg'
 const fmt = (n: number) => Number(n).toLocaleString('vi-VN')
 
 function PayContent() {

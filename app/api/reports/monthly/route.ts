@@ -4,21 +4,25 @@ import sql from '@/lib/db'
 
 export async function GET(req: NextRequest) {
   try {
-    const year  = req.nextUrl.searchParams.get('year')  || new Date().getFullYear().toString()
-    const month = req.nextUrl.searchParams.get('month') || String(new Date().getMonth() + 1)
+    const year  = Number(req.nextUrl.searchParams.get('year')  || new Date().getFullYear())
+    const month = Number(req.nextUrl.searchParams.get('month') || new Date().getMonth() + 1)
 
-    const monthPad = month.padStart(2, '0')
-    const startDate = `${year}-${monthPad}-01`
-    const endDate = new Date(Number(year), Number(month), 0).toISOString().split('T')[0]
+    const monthPad = String(month).padStart(2, '0')
+    // VN midnight → UTC: subtract 7h
+    const utcStart = new Date(`${year}-${monthPad}-01T00:00:00+07:00`).toISOString().replace('T', ' ').replace('Z', '')
+    // Last day of month 23:59:59 VN → UTC
+    const lastDay = new Date(year, month, 0).getDate()
+    const lastDayPad = String(lastDay).padStart(2, '0')
+    const utcEnd = new Date(`${year}-${monthPad}-${lastDayPad}T23:59:59+07:00`).toISOString().replace('T', ' ').replace('Z', '')
 
-    // Daily breakdown
+    // Daily breakdown — group by VN date (UTC+7)
     const daily = await sql`
       SELECT
-        DATE(created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') as day,
+        ((created_at + interval '7 hours')::date)::text as day,
         COALESCE(SUM(total_amount), 0)::numeric as revenue,
         COUNT(*)::int as order_count
       FROM orders
-      WHERE DATE(created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') BETWEEN ${startDate} AND ${endDate}
+      WHERE created_at >= ${utcStart}::timestamp AND created_at <= ${utcEnd}::timestamp
         AND status != 'cancelled'
       GROUP BY day ORDER BY day
     `
@@ -30,11 +34,13 @@ export async function GET(req: NextRequest) {
         COUNT(*)::int as order_count,
         COALESCE(AVG(total_amount), 0)::numeric as avg_order
       FROM orders
-      WHERE DATE(created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') BETWEEN ${startDate} AND ${endDate}
+      WHERE created_at >= ${utcStart}::timestamp AND created_at <= ${utcEnd}::timestamp
         AND status != 'cancelled'
     `
 
-    // Thu/Chi
+    // Thu/Chi for the month
+    const startDate = `${year}-${monthPad}-01`
+    const endDate   = `${year}-${monthPad}-${lastDayPad}`
     const thuChi = await sql`
       SELECT
         COALESCE(SUM(CASE WHEN type='thu' THEN amount ELSE 0 END), 0)::numeric as total_thu,
@@ -51,20 +57,22 @@ export async function GET(req: NextRequest) {
         SUM(oi.subtotal)::numeric as total_revenue
       FROM order_items oi
       JOIN orders o ON o.id = oi.order_id
-      WHERE DATE(o.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') BETWEEN ${startDate} AND ${endDate}
+      WHERE o.created_at >= ${utcStart}::timestamp AND o.created_at <= ${utcEnd}::timestamp
         AND o.status != 'cancelled'
       GROUP BY oi.product_name
       ORDER BY total_qty DESC LIMIT 5
     `
 
     // 6-month trend
+    const trend6Start = new Date(new Date(`${year}-${monthPad}-01T00:00:00+07:00`).getTime() - 5 * 30 * 24 * 60 * 60 * 1000)
+    const trend6StartStr = trend6Start.toISOString().replace('T', ' ').replace('Z', '')
     const trend = await sql`
       SELECT
-        TO_CHAR(DATE_TRUNC('month', created_at AT TIME ZONE 'Asia/Ho_Chi_Minh'), 'YYYY-MM') as month_key,
+        TO_CHAR(((created_at + interval '7 hours')::date), 'YYYY-MM') as month_key,
         COALESCE(SUM(total_amount), 0)::numeric as revenue,
         COUNT(*)::int as order_count
       FROM orders
-      WHERE created_at >= NOW() - INTERVAL '6 months'
+      WHERE created_at >= ${trend6StartStr}::timestamp
         AND status != 'cancelled'
       GROUP BY month_key ORDER BY month_key
     `
@@ -74,7 +82,7 @@ export async function GET(req: NextRequest) {
     const totalChi = Number(thuChi[0].total_chi)
 
     return NextResponse.json({
-      year: Number(year), month: Number(month),
+      year, month,
       total_revenue: totalRevenue,
       order_count: Number(totals[0].order_count),
       avg_order: Math.round(Number(totals[0].avg_order)),
