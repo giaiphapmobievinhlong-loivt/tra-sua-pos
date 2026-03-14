@@ -19,13 +19,16 @@ export async function GET(req: NextRequest) {
     if (type === 'monthly') {
       const monthStart = `${year}-${String(month).padStart(2,'0')}-01T00:00:00+07:00`
       const nextMonth  = month === 12 ? `${year+1}-01-01T00:00:00+07:00` : `${year}-${String(month+1).padStart(2,'0')}-01T00:00:00+07:00`
+      // Convert to UTC for TIMESTAMP (no tz) column comparison
+      const utcMonthStart = new Date(monthStart).toISOString().replace('T', ' ').replace('Z', '').split('.')[0]
+      const utcNextMonth  = new Date(nextMonth).toISOString().replace('T', ' ').replace('Z', '').split('.')[0]
 
       const stats = await sql`
         SELECT COALESCE(SUM(total_amount),0) as total_revenue,
                COUNT(*) as order_count,
                COALESCE(AVG(total_amount),0) as avg_order
         FROM orders
-        WHERE created_at >= ${monthStart}::timestamptz AND created_at < ${nextMonth}::timestamptz
+        WHERE created_at >= ${utcMonthStart}::timestamp AND created_at < ${utcNextMonth}::timestamp
           AND status != 'cancelled'
       `
       const thuChi = await sql`
@@ -40,7 +43,7 @@ export async function GET(req: NextRequest) {
                COALESCE(SUM(total_amount),0) as revenue,
                COUNT(*) as order_count
         FROM orders
-        WHERE created_at >= ${monthStart}::timestamptz AND created_at < ${nextMonth}::timestamptz
+        WHERE created_at >= ${utcMonthStart}::timestamp AND created_at < ${utcNextMonth}::timestamp
           AND status != 'cancelled'
         GROUP BY ((created_at + interval '7 hours')::date)
         ORDER BY day
@@ -51,7 +54,7 @@ export async function GET(req: NextRequest) {
                SUM(oi.subtotal) as total_revenue
         FROM order_items oi
         JOIN orders o ON o.id = oi.order_id
-        WHERE o.created_at >= ${monthStart}::timestamptz AND o.created_at < ${nextMonth}::timestamptz
+        WHERE o.created_at >= ${utcMonthStart}::timestamp AND o.created_at < ${utcNextMonth}::timestamp
           AND o.status != 'cancelled'
         GROUP BY oi.product_name
         ORDER BY total_qty DESC LIMIT 5
@@ -61,8 +64,8 @@ export async function GET(req: NextRequest) {
                COALESCE(SUM(total_amount),0) as revenue,
                COUNT(*) as order_count
         FROM orders
-        WHERE created_at >= (${monthStart}::timestamptz - interval '5 months')
-          AND created_at < ${nextMonth}::timestamptz
+        WHERE created_at >= (${utcMonthStart}::timestamp - interval '5 months')
+          AND created_at < ${utcNextMonth}::timestamp
           AND status != 'cancelled'
         GROUP BY month_key ORDER BY month_key
       `

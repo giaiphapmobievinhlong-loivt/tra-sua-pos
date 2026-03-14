@@ -158,9 +158,9 @@ function DailyReport() {
 // MONTHLY REPORT TAB
 // ══════════════════════════════════════════════════════════════
 function MonthlyReport() {
-  const now = new Date()
-  const [year, setYear]   = useState(now.getFullYear())
-  const [month, setMonth] = useState(now.getMonth() + 1)
+  const nowVN = new Date(Date.now() + 7 * 60 * 60 * 1000)
+  const [year, setYear]   = useState(nowVN.getUTCFullYear())
+  const [month, setMonth] = useState(nowVN.getUTCMonth() + 1)
   const [data, setData]   = useState<MonthlyData | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -670,7 +670,17 @@ function OrderHistory() {
 // ══════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ══════════════════════════════════════════════════════════════
-const parseVNTime = (ts: string) => { const s = ts?.toString() || ''; return new Date(s.replace(' ', 'T').replace(/(\.\d+)?$/, '+07:00')) }
+const parseVNTime = (ts: string | Date) => {
+  if (!ts) return new Date(NaN)
+  if (ts instanceof Date) {
+    // Date object from Neon is already UTC — add 7h offset for display
+    return new Date(ts.getTime() + 7 * 60 * 60 * 1000)
+  }
+  // String from Neon: "2026-03-14 06:29:42" is UTC — parse as UTC then add 7h
+  const s = ts.toString().replace(' ', 'T').split('.')[0]
+  const utc = new Date(s + 'Z')  // treat as UTC
+  return new Date(utc.getTime() + 7 * 60 * 60 * 1000)
+}
 
 export default function BaoCaoPage() {
   const [tab, setTab] = useState<'daily' | 'monthly' | 'history'>('daily')
@@ -704,9 +714,9 @@ export default function BaoCaoPage() {
           </button>
         </div>
 
-        {tab === 'daily'   && <DailyReport />}
-        {tab === 'monthly' && <MonthlyReport />}
-        {tab === 'history' && <OrderHistory />}
+        {tab === 'daily'   && <DailyReport key="daily" />}
+        {tab === 'monthly' && <MonthlyReport key="monthly" />}
+        {tab === 'history' && <OrderHistory key="history" />}
       </div>
     </div>
   )

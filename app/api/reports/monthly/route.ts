@@ -9,12 +9,13 @@ export async function GET(req: NextRequest) {
 
     const monthPad = String(month).padStart(2, '0')
     // VN midnight → UTC: subtract 7h
-    const utcStart = new Date(`${year}-${monthPad}-01T00:00:00+07:00`).toISOString().replace('T', ' ').replace('Z', '')
+    const utcStart = new Date(`${year}-${monthPad}-01T00:00:00+07:00`).toISOString().replace('T', ' ').replace('Z', '').split('.')[0]
     // Last day of month 23:59:59 VN → UTC
     const lastDay = new Date(year, month, 0).getDate()
     const lastDayPad = String(lastDay).padStart(2, '0')
-    const utcEnd = new Date(`${year}-${monthPad}-${lastDayPad}T23:59:59+07:00`).toISOString().replace('T', ' ').replace('Z', '')
+    const utcEnd = new Date(`${year}-${monthPad}-${lastDayPad}T23:59:59+07:00`).toISOString().replace('T', ' ').replace('Z', '').split('.')[0]
 
+    console.log('[monthly]', { utcStart, utcEnd })
     // Daily breakdown — group by VN date (UTC+7)
     const daily = await sql`
       SELECT
