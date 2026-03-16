@@ -263,6 +263,14 @@ export default function DonHangPage() {
   }, [fetchOrders])
 
   async function handleStatusChange(id: number, status: string) {
+    // Warn if completing unpaid order
+    if (status === 'completed') {
+      const order = orders.find(o => o.id === id)
+      if (order && !order.is_paid) {
+        const ok = window.confirm('⚠️ Đơn này chưa thanh toán! Bạn có chắc muốn hoàn thành không?')
+        if (!ok) return
+      }
+    }
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o))
     await apiFetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
     fetchOrders()

@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
           AND o.status != 'cancelled'
           AND o.is_paid = true
         GROUP BY oi.product_name
-        ORDER BY total_qty DESC LIMIT 5
+        ORDER BY total_qty DESC LIMIT 20
       `
       const trend = await sql`
         SELECT TO_CHAR(DATE_TRUNC('month', created_at + interval '7 hours'), 'YYYY-MM') as month_key,
@@ -116,11 +116,33 @@ export async function GET(req: NextRequest) {
           AND is_paid = true
       GROUP BY hour ORDER BY hour
     `
+    const cups = await sql`
+      SELECT COALESCE(SUM(oi.quantity),0)::int as total_cups
+      FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id
+      WHERE o.created_at >= ${utcStart}::timestamp AND o.created_at <= ${utcEnd}::timestamp
+        AND o.status != 'cancelled'
+        AND o.is_paid = true
+    `
+    const top_products = await sql`
+      SELECT oi.product_name,
+             SUM(oi.quantity)::int as total_qty,
+             SUM(oi.subtotal) as total_revenue
+      FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id
+      WHERE o.created_at >= ${utcStart}::timestamp AND o.created_at <= ${utcEnd}::timestamp
+        AND o.status != 'cancelled'
+        AND o.is_paid = true
+      GROUP BY oi.product_name
+      ORDER BY total_qty DESC LIMIT 10
+    `
     return NextResponse.json({
       total_revenue: Number(stats[0].total_revenue),
       order_count: Number(stats[0].order_count),
       avg_order: Math.round(Number(stats[0].avg_order)),
       estimated_profit: Number(stats[0].total_revenue) + Number(thuChi[0].total_thu) - Number(thuChi[0].total_chi),
+      total_cups: Number(cups[0].total_cups),
+      top_products: top_products.map(p => ({ ...p, total_qty: Number(p.total_qty), total_revenue: Number(p.total_revenue) })),
       recent_orders, hourly,
     }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } })
   } catch (error) {

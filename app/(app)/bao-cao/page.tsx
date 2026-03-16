@@ -11,7 +11,7 @@ import {
 } from 'recharts'
 
 // ── helpers ──────────────────────────────────────────────────
-const fmt = (n: number) => n.toLocaleString('vi-VN')
+const fmt = (n: number | undefined | null) => Number(n ?? 0).toLocaleString('vi-VN')
 const fmtShort = (n: number) => n >= 1_000_000 ? `${(n/1_000_000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n/1000)}k` : String(n)
 
 const MONTHS = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12']
@@ -20,14 +20,15 @@ const MONTH_FULL = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Thá
 
 // ── interfaces ───────────────────────────────────────────────
 interface DailyData {
-  total_revenue: number; order_count: number; avg_order: number; estimated_profit: number
+  total_revenue: number; order_count: number; avg_order: number; estimated_profit: number; total_cups?: number
+  top_products?: { product_name: string; total_qty: number; total_revenue: number }[]
   recent_orders: { order_code: string; created_at: string; username: string; total_amount: number; status: string }[]
   hourly: { hour: number; revenue: number; count: number }[]
 }
 
 interface MonthlyData {
   year: number; month: number
-  total_revenue: number; order_count: number; avg_order: number
+  total_revenue: number; order_count: number; avg_order: number; total_cups?: number
   total_thu: number; total_chi: number; estimated_profit: number
   daily: { day: string; revenue: number; order_count: number }[]
   top_products: { product_name: string; total_qty: number; total_revenue: number }[]
@@ -112,7 +113,38 @@ function DailyReport() {
             <StatCard label="Số đơn" value={String(data.order_count)} sub="đơn hàng" icon={ShoppingCart} color="bg-blue-50" />
             <StatCard label="Trung bình/đơn" value={`${fmt(data.avg_order)}đ`} icon={BarChart2} color="bg-purple-50" />
             <StatCard label="Lợi nhuận" value={`${fmt(data.estimated_profit)}đ`} sub="Gồm thu chi ngoài" icon={TrendingUp} color="bg-green-50" />
+            <StatCard label="Tổng ly bán" value={`${data.total_cups ?? 0}`} sub="ly" icon={ShoppingCart} color="bg-yellow-50" />
           </div>
+
+          {/* Top products */}
+          {(data.top_products ?? []).length > 0 && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+              <h3 className="font-bold text-gray-800 mb-3 text-sm">🧋 Số lượng theo sản phẩm</h3>
+              <div className="space-y-2">
+                {(data.top_products ?? []).map((p, i) => {
+                  const maxQty = (data.top_products ?? [])[0]?.total_qty || 1
+                  const pct = Math.round((p.total_qty / maxQty) * 100)
+                  return (
+                    <div key={p.product_name}>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-gray-400 w-4">{i+1}</span>
+                          <p className="text-sm font-medium text-gray-800 truncate">{p.product_name}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <p className="text-xs font-bold text-orange-600">{p.total_qty} ly</p>
+                          <p className="text-xs text-gray-400">{fmt(p.total_revenue)}đ</p>
+                        </div>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-orange-400 rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Hourly chart */}
           {hourlyChart.length > 0 && (
@@ -168,7 +200,8 @@ function MonthlyReport() {
     setLoading(true)
     try {
       const res = await fetch(`/api/reports/monthly?year=${year}&month=${month}&t=${Date.now()}`, { cache: 'no-store' })
-      setData(await res.json())
+      const json = await res.json()
+      if (!json.error) setData(json)
     } finally { setLoading(false) }
   }, [year, month])
 
@@ -186,7 +219,7 @@ function MonthlyReport() {
   // Fill all days of month for chart
   const daysInMonth = new Date(year, month, 0).getDate()
   const dailyMap: Record<string, { revenue: number; order_count: number }> = {}
-  data?.daily.forEach(d => { dailyMap[d.day] = d })
+  ;(Array.isArray(data?.daily) ? data.daily : []).forEach(d => { dailyMap[d.day] = d })
 
   const dailyChart = Array.from({ length: daysInMonth }, (_, i) => {
     const d = i + 1
@@ -239,6 +272,7 @@ function MonthlyReport() {
             <StatCard label="Tổng đơn" value={String(data.order_count)} sub="đơn hàng" icon={ShoppingCart} color="bg-blue-50" />
             <StatCard label="Trung bình/đơn" value={`${fmt(data.avg_order)}đ`} icon={BarChart2} color="bg-purple-50" />
             <StatCard label="Lợi nhuận" value={`${fmt(data.estimated_profit)}đ`} sub="Gồm thu chi ngoài" icon={TrendingUp} color="bg-green-50" />
+            <StatCard label="Tổng ly bán" value={`${data.total_cups ?? 0}`} sub="ly" icon={ShoppingCart} color="bg-yellow-50" />
           </div>
 
           {/* Thu / Chi summary */}
@@ -435,6 +469,9 @@ function OrderHistory() {
   const totalRevenue = filtered
     .filter(o => o.status !== 'cancelled' && o.is_paid)
     .reduce((s, o) => s + Number(o.total_amount), 0)
+  const totalCups = filtered
+    .filter(o => o.status !== 'cancelled' && o.is_paid)
+    .reduce((s, o) => s + (o.items?.reduce((si, i) => si + i.quantity, 0) || 0), 0)
 
   return (
     <div className="space-y-4">
@@ -499,7 +536,7 @@ function OrderHistory() {
       {!loading && orders.length > 0 && (
         <div className="space-y-2">
           {/* Row 1 — tổng quan */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <div className="bg-orange-50 rounded-xl p-3 border border-orange-100 text-center">
               <p className="text-xs text-orange-600 font-semibold">Tổng đơn</p>
               <p className="text-lg font-bold text-orange-700">{filtered.length}</p>
@@ -511,6 +548,10 @@ function OrderHistory() {
             <div className="bg-blue-50 rounded-xl p-3 border border-blue-100 text-center">
               <p className="text-xs text-blue-600 font-semibold">Doanh thu</p>
               <p className="text-sm font-bold text-blue-700 tabular-nums">{fmtShort(totalRevenue)}đ</p>
+            </div>
+            <div className="bg-yellow-50 rounded-xl p-3 border border-yellow-100 text-center">
+              <p className="text-xs text-yellow-600 font-semibold">Tổng ly bán</p>
+              <p className="text-lg font-bold text-yellow-700">{totalCups} ly</p>
             </div>
           </div>
 
