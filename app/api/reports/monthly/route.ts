@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
         AND o.status != 'cancelled'
         AND o.is_paid = true
       GROUP BY oi.product_name
-      ORDER BY total_qty DESC LIMIT 5
+      ORDER BY total_qty DESC LIMIT 20
     `
 
     // 6-month trend
@@ -81,6 +81,15 @@ export async function GET(req: NextRequest) {
       GROUP BY month_key ORDER BY month_key
     `
 
+    const cups = await sql`
+      SELECT COALESCE(SUM(oi.quantity),0)::int as total_cups
+      FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id
+      WHERE o.created_at >= ${utcStart}::timestamp AND o.created_at <= ${utcEnd}::timestamp
+        AND o.status != 'cancelled'
+        AND o.is_paid = true
+    `
+
     const totalRevenue = Number(totals[0].total_revenue)
     const totalThu = Number(thuChi[0].total_thu)
     const totalChi = Number(thuChi[0].total_chi)
@@ -92,6 +101,7 @@ export async function GET(req: NextRequest) {
       avg_order: Math.round(Number(totals[0].avg_order)),
       total_thu: totalThu, total_chi: totalChi,
       estimated_profit: totalRevenue + totalThu - totalChi,
+      total_cups: Number(cups[0].total_cups),
       daily: daily.map(d => ({ ...d, revenue: Number(d.revenue), order_count: Number(d.order_count) })),
       top_products: top_products.map(p => ({ ...p, total_qty: Number(p.total_qty), total_revenue: Number(p.total_revenue) })),
       trend: trend.map(t => ({ ...t, revenue: Number(t.revenue), order_count: Number(t.order_count) })),

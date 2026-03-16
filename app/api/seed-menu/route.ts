@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
     const cats = await sql`SELECT id, slug FROM categories`
     const catMap: Record<string, number> = {}
-    cats.forEach((c) => { catMap[c.slug] = c.id })
+    cats.forEach((c: { slug: string; id: number }) => { catMap[c.slug] = c.id })
 
     // Seed products theo menu thực tế
     const products = [
