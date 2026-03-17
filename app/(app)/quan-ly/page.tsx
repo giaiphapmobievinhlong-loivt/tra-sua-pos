@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Pencil, Trash2, Package, Layers, Users, X, Check, Eye, EyeOff, Tag, Percent, DollarSign, ToggleLeft, ToggleRight, QrCode, Printer, ExternalLink, Wrench } from 'lucide-react'
+import { Plus, Pencil, Trash2, Package, Layers, Users, X, Check, Eye, EyeOff, Tag, Percent, DollarSign, ToggleLeft, ToggleRight, QrCode, Printer, ExternalLink, Wrench, ChefHat } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────
 interface Category {
@@ -29,7 +29,7 @@ interface User {
   created_at: string
 }
 
-type Tab = 'products' | 'categories' | 'users' | 'discounts' | 'qr' | 'settings' | 'settings'
+type Tab = 'products' | 'categories' | 'users' | 'discounts' | 'qr' | 'settings' | 'recipes'
 
 // ─── Modal wrapper ────────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -1002,6 +1002,213 @@ function SettingsTab() {
   )
 }
 
+
+// ─── Recipes Tab ──────────────────────────────────────────
+function RecipesTab() {
+  const [activeSection, setActiveSection] = useState<'nen' | 'ly'>('nen')
+  const [activeRecipe, setActiveRecipe] = useState(0)
+
+  const nenTra = [
+    {
+      title: 'Nền Trà Cốt Tắc',
+      emoji: '🍋',
+      color: 'bg-yellow-50 border-yellow-200',
+      headerColor: 'bg-yellow-500',
+      steps: [
+        { step: 1, title: 'Chuẩn bị trà', items: ['35g Lục trà Lài', '5g Trà đen Novia', '1.2 lít nước nóng 80–85°C'] },
+        { step: 2, title: 'Ủ trà', items: ['Tráng trà 5–10ml trước', 'Cho 1.2 lít nước nóng vào', 'Ủ 12–15 phút đến khi ra hết màu', 'Vớt trà ra'] },
+        { step: 3, title: 'Thêm nguyên liệu', items: ['Đường: 150g', 'Thêm 2 súc đá → đạt 2 lít', 'Sốc lên để giữ vị trà'] },
+        { step: 4, title: 'Bảo quản', items: ['Để tủ lạnh 4–6 tiếng', 'Đậy nắp kín'] },
+      ]
+    },
+    {
+      title: 'Nền Trà Sữa',
+      emoji: '🧋',
+      color: 'bg-amber-50 border-amber-200',
+      headerColor: 'bg-amber-600',
+      steps: [
+        { step: 1, title: 'Chuẩn bị trà', items: ['60g Trà đen Hoàng Gia', '40g Trà nguyên lá Novia', '2.1 lít nước sôi ~100°C'] },
+        { step: 2, title: 'Ủ trà', items: ['Cho nước sôi vào', 'Ủ 25 phút'] },
+        { step: 3, title: 'Thêm nguyên liệu (theo thứ tự)', items: ['① Bột kem béo: 300–320g', '② Sữa đặc Ngôi Sao PN: 300–320ml', '③ Đường đen: 150g', '④ Rich lùn: 100ml (tăng độ béo ngậy)', '⑤ Sốc nhiệt 2 súc đá'] },
+        { step: 4, title: 'Bảo quản', items: ['Ủ tủ lạnh 7–8 tiếng', 'Đậy nắp kín'] },
+      ]
+    },
+  ]
+
+  const congThucLy = [
+    {
+      title: 'Trà Tắc', price: '10K', size: '700ml', emoji: '🍋',
+      color: 'border-yellow-300', headerBg: 'bg-yellow-400', tagBg: 'bg-yellow-100 text-yellow-700',
+      note: 'Lắc đều, decor lát tắc',
+      items: [
+        { label: 'Ly', value: '700ml' },
+        { label: 'Trà', value: '200ml' },
+        { label: 'Tắc', value: '20ml (1 trái lớn hoặc 1.5 trái nhỏ)' },
+        { label: 'Đường', value: '45ml' },
+      ]
+    },
+    {
+      title: 'Trà Tắc Xí Muội', price: '15K', size: '700ml', emoji: '🍊',
+      color: 'border-orange-300', headerBg: 'bg-orange-400', tagBg: 'bg-orange-100 text-orange-700',
+      note: 'Đổ hết nước và đá ra trước, xí muội trang trí ở trên',
+      items: [
+        { label: 'Trà', value: '180ml' },
+        { label: 'Sốt tắc xí muội', value: '50g (1 muỗng đen)' },
+        { label: 'Đường', value: '45ml' },
+        { label: 'Tắc', value: 'Nửa hoặc 1 trái' },
+        { label: 'Đá', value: 'Cho đá vào lắc đều' },
+      ]
+    },
+    {
+      title: 'Trà Me', price: '15K', size: '700ml', emoji: '🟤',
+      color: 'border-brown-300', headerBg: 'bg-stone-500', tagBg: 'bg-stone-100 text-stone-700',
+      note: 'Thêm đậu phộng',
+      items: [
+        { label: 'Trà', value: '150ml' },
+        { label: 'Me', value: '2 muỗng me (màu đen)' },
+        { label: 'Siro đường', value: '20–45ml' },
+        { label: 'Tắc', value: '½ trái' },
+        { label: 'Đá', value: 'Xốc đều' },
+      ]
+    },
+    {
+      title: 'Trà Dâu', price: '20K', size: '500ml / 700ml', emoji: '🍓',
+      color: 'border-pink-300', headerBg: 'bg-pink-400', tagBg: 'bg-pink-100 text-pink-700',
+      note: 'Decor thêm dâu ngâm',
+      items: [
+        { label: 'Trà (S/L)', value: '110ml / 150–170ml' },
+        { label: 'Mứt dâu (S/L)', value: '25ml / 35ml' },
+        { label: 'Đường (S/L)', value: '25ml / 25ml' },
+        { label: 'Tắc', value: '1.5 trái hoặc 1 trái to' },
+        { label: 'Đá', value: 'Lắc đều' },
+      ]
+    },
+    {
+      title: 'Trà Sữa', price: '20K/25K', size: '500ml / 700ml', emoji: '🧋',
+      color: 'border-amber-300', headerBg: 'bg-amber-500', tagBg: 'bg-amber-100 text-amber-700',
+      note: 'Đổ đầy đá vào ly trước',
+      items: [
+        { label: 'Đá', value: 'Đổ đầy ly' },
+        { label: 'Trà sữa', value: 'Đổ vào khoảng 7 phần' },
+        { label: 'Trân châu', value: '1 vá' },
+        { label: 'Pudding trứng', value: '4–5 cục' },
+      ]
+    },
+    {
+      title: 'Matcha Latte', price: '28K/32K', size: '500ml / 700ml', emoji: '🍵',
+      color: 'border-green-300', headerBg: 'bg-green-500', tagBg: 'bg-green-100 text-green-700',
+      note: 'Đánh matcha thật nhuyễn rồi rưới lên ly đá',
+      items: [
+        { label: 'Sữa tươi (S/L)', value: '110ml / 170ml' },
+        { label: 'Sữa đặc (S/L)', value: '30ml / 50ml' },
+        { label: 'Máy đánh cafe', value: 'Mở mức mạnh nhất' },
+        { label: 'Đá', value: 'Cho vào gần đầy ly' },
+        { label: 'Bột matcha', value: '5g (1 muỗng gỗ)' },
+        { label: 'Nước ấm', value: '~80°C, đánh thật nhuyễn' },
+      ]
+    },
+  ]
+
+  return (
+    <div className="space-y-4">
+      {/* Section toggle */}
+      <div className="flex gap-2 bg-gray-100 p-1 rounded-xl">
+        <button onClick={() => setActiveSection('nen')}
+          className={`flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all ${activeSection === 'nen' ? 'bg-white shadow text-orange-600' : 'text-gray-500'}`}>
+          🫖 Nền Trà
+        </button>
+        <button onClick={() => setActiveSection('ly')}
+          className={`flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all ${activeSection === 'ly' ? 'bg-white shadow text-orange-600' : 'text-gray-500'}`}>
+          🧋 Công Thức Từng Ly
+        </button>
+      </div>
+
+      {activeSection === 'nen' && (
+        <div className="space-y-4">
+          {nenTra.map((recipe, ri) => (
+            <div key={ri} className={`border-2 rounded-2xl overflow-hidden ${recipe.color}`}>
+              <div className={`${recipe.headerColor} px-4 py-3 flex items-center gap-2`}>
+                <span className="text-2xl">{recipe.emoji}</span>
+                <h3 className="font-bold text-white text-base">{recipe.title}</h3>
+              </div>
+              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                {recipe.steps.map((s) => (
+                  <div key={s.step} className="bg-white rounded-xl p-3 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs font-black flex items-center justify-center shrink-0">{s.step}</span>
+                      <p className="font-bold text-gray-700 text-sm">{s.title}</p>
+                    </div>
+                    <ul className="space-y-1">
+                      {s.items.map((item, i) => (
+                        <li key={i} className="text-sm text-gray-600 flex items-start gap-1.5">
+                          <span className="text-orange-400 mt-0.5 shrink-0">•</span>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeSection === 'ly' && (
+        <div className="space-y-3">
+          {/* Recipe selector */}
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {congThucLy.map((r, i) => (
+              <button key={i} onClick={() => setActiveRecipe(i)}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap ${
+                  activeRecipe === i ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-200'
+                }`}>
+                {r.emoji} {r.title}
+              </button>
+            ))}
+          </div>
+
+          {/* Recipe card */}
+          {(() => {
+            const r = congThucLy[activeRecipe]
+            return (
+              <div className={`border-2 rounded-2xl overflow-hidden ${r.color}`}>
+                <div className={`${r.headerBg} px-4 py-3 flex items-center justify-between`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">{r.emoji}</span>
+                    <div>
+                      <h3 className="font-bold text-white text-base">{r.title}</h3>
+                      <p className="text-white/80 text-xs">{r.size}</p>
+                    </div>
+                  </div>
+                  <span className={`${r.tagBg} font-black text-sm px-3 py-1 rounded-full`}>{r.price}</span>
+                </div>
+                <div className="p-4 space-y-2">
+                  {r.items.map((item, i) => (
+                    <div key={i} className="bg-white rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
+                      <span className="w-7 h-7 rounded-full bg-orange-100 text-orange-600 font-black text-sm flex items-center justify-center shrink-0">{i + 1}</span>
+                      <div className="flex-1 flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-gray-700">{item.label}</p>
+                        <p className="text-sm text-orange-600 font-bold text-right">{item.value}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {r.note && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-2.5 flex items-start gap-2">
+                      <span className="text-orange-500 shrink-0">📝</span>
+                      <p className="text-sm text-orange-700 font-medium">{r.note}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'products', label: 'Sản Phẩm', icon: Package },
@@ -1010,6 +1217,7 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'discounts', label: 'Khuyến Mãi', icon: Tag },
   { id: 'qr', label: 'QR Bàn', icon: QrCode },
   { id: 'settings', label: 'Cài Đặt', icon: ToggleRight },
+  { id: 'recipes', label: 'Công Thức', icon: ChefHat },
 ]
 
 export default function QuanLyPage() {
@@ -1055,6 +1263,7 @@ export default function QuanLyPage() {
       {tab === 'discounts' && <DiscountsTab />}
       {tab === 'qr' && <QrTab />}
       {tab === 'settings' && <SettingsTab />}
+      {tab === 'recipes' && <RecipesTab />}
     </div>
   )
 }

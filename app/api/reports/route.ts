@@ -127,7 +127,7 @@ export async function GET(req: NextRequest) {
     const top_products = await sql`
       SELECT oi.product_name,
              SUM(oi.quantity)::int as total_qty,
-             SUM(oi.subtotal) as total_revenue
+             SUM(oi.subtotal * (1 - COALESCE(o.discount_amount, 0)::float / NULLIF(o.total_amount + COALESCE(o.discount_amount, 0), 0)))::numeric as total_revenue
       FROM order_items oi
       JOIN orders o ON o.id = oi.order_id
       WHERE o.created_at >= ${utcStart}::timestamp AND o.created_at <= ${utcEnd}::timestamp
