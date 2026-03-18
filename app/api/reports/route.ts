@@ -101,7 +101,7 @@ export async function GET(req: NextRequest) {
       FROM transactions WHERE transaction_date = ${date}
     `
     const recent_orders = await sql`
-      SELECT o.*, u.username FROM orders o
+      SELECT o.*, TO_CHAR(o.created_at + interval '7 hours', 'YYYY-MM-DD HH24:MI:SS') as vn_created_at, u.username FROM orders o
       LEFT JOIN users u ON o.user_id = u.id
       WHERE o.created_at >= ${utcStart}::timestamp AND o.created_at <= ${utcEnd}::timestamp
       ORDER BY o.created_at DESC LIMIT 10
