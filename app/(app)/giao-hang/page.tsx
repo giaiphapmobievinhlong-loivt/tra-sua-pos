@@ -1,4 +1,5 @@
 'use client'
+import { fmtVNTime } from '@/lib/vntime'
 import { apiFetch } from '@/lib/apiFetch'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { RefreshCw, MapPin, Phone, User, Clock, ChefHat, Bike, CheckCircle, XCircle, AlertCircle, CreditCard } from 'lucide-react'
@@ -87,7 +88,7 @@ function DeliveryCard({ order, onStatusChange, onCancel, onApprovePay }: {
           </div>
           <div className="text-right shrink-0">
             <p className="font-extrabold text-orange-500 text-sm">{fmt(Number(order.total_amount))}đ</p>
-            <p className="text-[10px] text-gray-400">{new Date(order.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</p>
+            <p className="text-[10px] text-gray-400">{fmtVNTime(order.created_at)}</p>
           </div>
         </div>
       </button>

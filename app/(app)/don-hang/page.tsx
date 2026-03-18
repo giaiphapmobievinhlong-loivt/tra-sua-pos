@@ -1,4 +1,5 @@
 'use client'
+import { fmtVNTime } from '@/lib/vntime'
 import { MOMO_QR } from '@/lib/constants'
 import { apiFetch } from '@/lib/apiFetch'
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -133,7 +134,7 @@ function OrderCard({ order, onStatusChange, onPay, onCancel }: {
   const nextStatus = isDelivery ? NEXT_STATUS[order.status] : NEXT_STATUS_NORMAL[order.status]
   const nextLabel  = isDelivery ? NEXT_LABEL[order.status]  : NEXT_LABEL_NORMAL[order.status]
   const isCancelled = order.status === 'cancelled'
-  const timeStr = new Date(order.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+  const timeStr = fmtVNTime(order.created_at)
   return (
     <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden ${isCancelled ? 'opacity-55' : ''}`}>
       <div className="px-4 pt-3 pb-2 flex items-start justify-between gap-2">

@@ -1,4 +1,5 @@
 'use client'
+import { toUtcDate, fmtVNTime, fmtVNDate, fmtVNDateLong, fmtVNDateWeekday } from '@/lib/vntime'
 import { useState, useEffect, useCallback } from 'react'
 import {
   DollarSign, ShoppingCart, TrendingUp, BarChart2,
@@ -22,7 +23,7 @@ const MONTH_FULL = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Thá
 interface DailyData {
   total_revenue: number; order_count: number; avg_order: number; estimated_profit: number; total_cups?: number
   top_products?: { product_name: string; total_qty: number; total_revenue: number }[]
-  recent_orders: { order_code: string; created_at: string; username: string; total_amount: number; status: string }[]
+  recent_orders: { order_code: string; created_at: string; vn_created_at?: string; username: string; total_amount: number; status: string }[]
   hourly: { hour: number; revenue: number; count: number }[]
 }
 
@@ -172,7 +173,7 @@ function DailyReport() {
                   <div>
                     <p className="text-sm font-semibold text-gray-800">#{o.order_code}</p>
                     <p className="text-xs text-gray-400">
-                      {parseVNTime(o.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} · {o.username}
+                      {fmtVNTime(o.vn_created_at || o.created_at)} · {o.username}
                     </p>
                   </div>
                   <p className="font-bold text-orange-600 text-sm">{fmt(o.total_amount)}đ</p>
@@ -301,7 +302,7 @@ function MonthlyReport() {
             <div className="bg-gradient-to-r from-orange-500 to-orange-400 rounded-2xl p-4 text-white">
               <p className="text-orange-100 text-xs font-medium mb-1">🏆 Ngày doanh thu cao nhất</p>
               <p className="font-bold text-xl">
-                {new Date(maxDay.day + 'T00:00:00+07:00').toLocaleDateString('vi-VN', { day: 'numeric', month: 'long' })}
+                {fmtVNDateLong(maxDay.day + 'T00:00:00Z')}
               </p>
               <p className="text-orange-100 text-sm mt-1">{fmt(maxDay.revenue)}đ · {maxDay.order_count} đơn</p>
             </div>
@@ -387,7 +388,7 @@ function MonthlyReport() {
                 {data.daily.map(d => (
                   <div key={d.day} className="grid grid-cols-3 text-sm py-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 rounded-lg px-1">
                     <span className="text-gray-600 font-medium">
-                      {new Date(d.day + 'T00:00:00+07:00').toLocaleDateString('vi-VN', { weekday: 'short', day: 'numeric', month: 'numeric' })}
+                      {fmtVNDateWeekday(d.day + 'T00:00:00Z')}
                     </span>
                     <span className="text-right font-bold text-orange-600">{fmt(d.revenue)}đ</span>
                     <span className="text-right text-gray-500">{d.order_count} đơn</span>
@@ -445,7 +446,7 @@ function OrderHistory() {
         limited.map(date => fetch(`/api/orders?date=${date}`).then(r => r.json()))
       )
       const all: HistoryOrder[] = results.flatMap(r => r.orders || [])
-      all.sort((a, b) => parseVNTime(b.created_at).getTime() - parseVNTime(a.created_at).getTime())
+      all.sort((a, b) => toUtcDate(b.created_at).getTime() - toUtcDate(a.created_at).getTime())
       setOrders(all)
     } finally { setLoading(false) }
   }, [fromDate, toDate])
@@ -640,8 +641,8 @@ function OrderHistory() {
           const si = STATUS_INFO[order.status] || STATUS_INFO.completed
           const StatusIcon = si.icon
           const isOpen = expanded === order.id
-          const dateStr = parseVNTime(order.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
-          const timeStr = parseVNTime(order.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+          const dateStr = fmtVNDate(order.created_at)
+          const timeStr = fmtVNTime(order.created_at)
           return (
             <div key={order.id}
               className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden ${order.status === 'cancelled' ? 'opacity-60' : ''}`}>
@@ -711,17 +712,7 @@ function OrderHistory() {
 // ══════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ══════════════════════════════════════════════════════════════
-const parseVNTime = (ts: string | Date) => {
-  if (!ts) return new Date(NaN)
-  if (ts instanceof Date) {
-    // Date object from Neon is already UTC — add 7h offset for display
-    return new Date(ts.getTime() + 7 * 60 * 60 * 1000)
-  }
-  // String from Neon: "2026-03-14 06:29:42" is UTC — parse as UTC then add 7h
-  const s = ts.toString().replace(' ', 'T').split('.')[0]
-  const utc = new Date(s + 'Z')  // treat as UTC
-  return new Date(utc.getTime() + 7 * 60 * 60 * 1000)
-}
+// VN time helpers imported from lib/vntime
 
 export default function BaoCaoPage() {
   const [tab, setTab] = useState<'daily' | 'monthly' | 'history'>('daily')

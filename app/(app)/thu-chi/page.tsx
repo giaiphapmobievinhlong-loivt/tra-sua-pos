@@ -1,4 +1,5 @@
 'use client'
+import { fmtVNTime } from '@/lib/vntime'
 import { apiFetch } from '@/lib/apiFetch'
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, TrendingUp, TrendingDown, Calendar, X, Trash2 } from 'lucide-react'
@@ -157,7 +158,7 @@ export default function ThuChiPage() {
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-800 text-sm truncate">{t.description}</p>
                 <p className="text-xs text-gray-400 truncate">
-                  {t.note ? `${t.note} · ` : ''}{t.username} · {new Date(t.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                  {t.note ? `${t.note} · ` : ''}{t.username} · {fmtVNTime(t.created_at)}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
