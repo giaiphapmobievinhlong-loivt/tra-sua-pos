@@ -22,7 +22,6 @@ export async function GET() {
       INNER JOIN products p ON p.category_id = c.id AND p.is_active IS NOT FALSE
       ORDER BY c.name
     `
-    console.log('[products] count:', products.length, 'ids:', products.map((p: any) => p.id).join(','))
     return NextResponse.json({ products, categories }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } })
   } catch (error) {
     console.error(error)

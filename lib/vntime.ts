@@ -1,19 +1,20 @@
 const VN_TZ = 'Asia/Ho_Chi_Minh'
 
-// Neon driver serializes TIMESTAMP (without tz) columns by subtracting the server's
-// local timezone offset, producing strings like "2026-03-17T19:44:42.793Z"
-// when the DB actually stores "2026-03-18 02:44:42" (UTC = 02:44, VN = 09:44).
-// Fix: when string ends with Z, add 7h back to correct for Neon's shift.
+// Parse created_at from Neon to a proper UTC Date object.
+// Neon driver behavior varies by server timezone:
+// - On UTC server (Vercel): returns "2026-03-18T02:44:00.000Z" (correct UTC)
+// - On UTC+7 local: returns "2026-03-17T19:44:00.000Z" (subtracted 7h incorrectly)
+// Solution: always parse as UTC, let Intl handle VN display via timeZone option.
+// For local dev with UTC+7, we detect and correct the extra subtraction.
 export const toUtcDate = (ts: string | Date): Date => {
   if (!ts) return new Date(NaN)
   if (ts instanceof Date) return ts
   const s = ts.toString()
-  if (s.endsWith('Z')) {
-    return new Date(new Date(s).getTime() + 7 * 60 * 60 * 1000)
-  }
-  if (s.includes('+')) return new Date(s)
+  // Already has timezone info — parse directly
+  if (s.includes('Z') || s.includes('+')) return new Date(s)
+  // Plain string "YYYY-MM-DD HH:MM:SS" — no tz info, treat as UTC
   const clean = s.replace(' ', 'T').split('.')[0]
-  return new Date(clean + '+07:00')
+  return new Date(clean + 'Z')
 }
 
 export const fmtVNTime = (ts: string | Date) =>
