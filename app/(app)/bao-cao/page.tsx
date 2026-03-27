@@ -410,7 +410,7 @@ interface OrderItem { id: number; product_name: string; quantity: number; unit_p
 interface HistoryOrder {
   id: number; order_code: string; total_amount: number; status: string
   is_paid: boolean; pay_method: string | null; table_number: string | null
-  created_at: string; username: string; note: string; items: OrderItem[]
+  created_at: string; vn_created_at?: string; username: string; note: string; items: OrderItem[]
   discount_amount?: number; discount_name?: string
 }
 
@@ -641,8 +641,8 @@ function OrderHistory() {
           const si = STATUS_INFO[order.status] || STATUS_INFO.completed
           const StatusIcon = si.icon
           const isOpen = expanded === order.id
-          const dateStr = fmtVNDate(order.created_at)
-          const timeStr = fmtVNTime(order.created_at)
+          const dateStr = fmtVNDate(order.vn_created_at || order.created_at)
+          const timeStr = fmtVNTime(order.vn_created_at || order.created_at)
           return (
             <div key={order.id}
               className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden ${order.status === 'cancelled' ? 'opacity-60' : ''}`}>
