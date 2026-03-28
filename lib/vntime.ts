@@ -1,20 +1,17 @@
 const VN_TZ = 'Asia/Ho_Chi_Minh'
 
-// Parse created_at from Neon to a proper UTC Date object.
-// Neon driver behavior varies by server timezone:
-// - On UTC server (Vercel): returns "2026-03-18T02:44:00.000Z" (correct UTC)
-// - On UTC+7 local: returns "2026-03-17T19:44:00.000Z" (subtracted 7h incorrectly)
-// Solution: always parse as UTC, let Intl handle VN display via timeZone option.
-// For local dev with UTC+7, we detect and correct the extra subtraction.
+// Two types of timestamps in this app:
+// 1. created_at from Neon: "2026-03-18T02:44:00.000Z" (UTC, has Z) → parse as UTC, Intl adds +7h
+// 2. vn_created_at from SQL (created_at + interval '7 hours'): "2026-03-18 09:44:00" (VN time, no Z) → parse as +07:00
 export const toUtcDate = (ts: string | Date): Date => {
   if (!ts) return new Date(NaN)
   if (ts instanceof Date) return ts
   const s = ts.toString()
-  // Already has timezone info — parse directly
+  // Has explicit timezone info — parse directly
   if (s.includes('Z') || s.includes('+')) return new Date(s)
-  // Plain string "YYYY-MM-DD HH:MM:SS" — no tz info, treat as UTC
+  // Plain string without tz = VN time from SQL (already +7h) → parse as +07:00
   const clean = s.replace(' ', 'T').split('.')[0]
-  return new Date(clean + 'Z')
+  return new Date(clean + '+07:00')
 }
 
 export const fmtVNTime = (ts: string | Date) =>
