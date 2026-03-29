@@ -1,4 +1,5 @@
 'use client'
+import { todayVN } from '@/lib/utils'
 import { fmtVNTime } from '@/lib/vntime'
 import { apiFetch } from '@/lib/apiFetch'
 import { useState, useEffect, useCallback } from 'react'
@@ -21,7 +22,7 @@ function fmt(n: number | string) {
 
 export default function ThuChiPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [date, setDate] = useState(new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0])
+  const [date, setDate] = useState(todayVN())
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ type: 'chi', amount: '', description: '', note: '' })
   const [loading, setLoading] = useState(false)

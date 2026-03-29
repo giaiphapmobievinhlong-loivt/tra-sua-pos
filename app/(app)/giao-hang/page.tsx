@@ -1,4 +1,5 @@
 'use client'
+import { fmt, todayVN } from '@/lib/utils'
 import { fmtVNTime } from '@/lib/vntime'
 import { apiFetch } from '@/lib/apiFetch'
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -12,7 +13,6 @@ interface DeliveryOrder {
   created_at: string; items: OrderItem[]
 }
 
-const fmt = (n: number) => Number(n).toLocaleString('vi-VN')
 
 const DELIVERY_STATUSES = [
   { key: 'pending',          icon: '⏰', label: 'Chờ xác nhận',  color: 'text-yellow-600 bg-yellow-50 border-yellow-200' },
@@ -37,7 +37,7 @@ const NEXT_LABEL: Record<string, string> = {
 }
 
 function getTodayVN() {
-  return new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0]
+  return todayVN()
 }
 
 function StatusBadge({ status }: { status: string }) {

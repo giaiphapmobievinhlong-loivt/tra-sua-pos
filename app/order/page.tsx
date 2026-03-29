@@ -1,4 +1,5 @@
 'use client'
+import { fmt } from '@/lib/utils'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -8,7 +9,6 @@ type OrderType = 'dine_in' | 'takeaway' | 'delivery'
 
 const TABLE_NUMBERS = ['1','2','3','4','5','6','7','8','9','10','11','12']
 const QUICK_TAGS = ['Ít đá','Không đá','Ít ngọt','Không ngọt','Thêm trân châu','Thêm thạch']
-const fmt = (n: number) => Number(n).toLocaleString('vi-VN')
 
 const ORDER_TYPES: { key: OrderType; icon: string; label: string; desc: string }[] = [
   { key: 'dine_in',  icon: '🪑', label: 'Tại quán',    desc: 'Ngồi tại bàn' },

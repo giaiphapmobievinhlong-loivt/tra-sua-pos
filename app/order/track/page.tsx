@@ -1,4 +1,5 @@
 'use client'
+import { fmt } from '@/lib/utils'
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 
@@ -21,7 +22,6 @@ const STATUS_STEPS_DELIVERY = [
   { key: 'completed',         icon: '🎉', label: 'Đã giao xong',   desc: 'Cảm ơn bạn đã đặt hàng tại Nhà Mèo!' },
 ]
 const STATUS_ORDER_DELIVERY = ['pending','awaiting_confirm','brewing','delivering','completed']
-const fmt = (n: number) => Number(n).toLocaleString('vi-VN')
 
 interface OrderItem { product_name: string; quantity: number; subtotal: number; item_note?: string }
 interface Order { id: number; order_code: string; status: string; total_amount: number; table_number: string | null; customer_name: string; customer_phone?: string; items: OrderItem[]; is_paid: boolean; created_at: string; order_type?: string; delivery_address?: string; delivery_fee?: number }

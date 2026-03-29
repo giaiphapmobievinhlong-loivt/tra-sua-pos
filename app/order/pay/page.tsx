@@ -1,9 +1,9 @@
 'use client'
+import { fmt } from '@/lib/utils'
 import { MOMO_QR } from '@/lib/constants'
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-const fmt = (n: number) => Number(n).toLocaleString('vi-VN')
 
 function PayContent() {
   const params = useSearchParams()

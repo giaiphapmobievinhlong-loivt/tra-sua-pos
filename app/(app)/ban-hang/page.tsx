@@ -549,7 +549,6 @@ export default function BanHangPage() {
         pay_method: payNow ? payMethod : null,
       }
 
-      console.log('Submitting order:', body)
 
       const res = await apiFetch('/api/orders', {
         method: 'POST',
@@ -558,7 +557,6 @@ export default function BanHangPage() {
       })
 
       const data = await res.json()
-      console.log('Order response:', data)
 
       if (res.ok && data.success) {
         const msg = payNow

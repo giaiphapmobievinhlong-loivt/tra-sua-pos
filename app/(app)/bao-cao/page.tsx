@@ -1,4 +1,5 @@
 'use client'
+import { fmt, fmtShort, todayVN } from '@/lib/utils'
 import { toUtcDate, fmtVNTime, fmtVNDate, fmtVNDateLong, fmtVNDateWeekday } from '@/lib/vntime'
 import { useState, useEffect, useCallback } from 'react'
 import {
@@ -12,7 +13,6 @@ import {
 } from 'recharts'
 
 // ── helpers ──────────────────────────────────────────────────
-const fmt = (n: number | undefined | null) => Number(n ?? 0).toLocaleString('vi-VN')
 const fmtShort = (n: number) => n >= 1_000_000 ? `${(n/1_000_000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n/1000)}k` : String(n)
 
 const MONTHS = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12']
@@ -66,7 +66,7 @@ function StatCard({ label, value, sub, icon: Icon, color, trend }: {
 // ══════════════════════════════════════════════════════════════
 function DailyReport() {
   const [data, setData] = useState<DailyData | null>(null)
-  const [date, setDate] = useState(new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0])
+  const [date, setDate] = useState(todayVN())
   const [loading, setLoading] = useState(false)
 
   const fetch_ = useCallback(async () => {
@@ -191,9 +191,9 @@ function DailyReport() {
 // MONTHLY REPORT TAB
 // ══════════════════════════════════════════════════════════════
 function MonthlyReport() {
-  const nowVN = new Date(Date.now() + 7 * 60 * 60 * 1000)
-  const [year, setYear]   = useState(nowVN.getUTCFullYear())
-  const [month, setMonth] = useState(nowVN.getUTCMonth() + 1)
+  const todayVN = todayVN()
+  const [year, setYear]   = useState(Number(todayVN.split('-')[0]))
+  const [month, setMonth] = useState(Number(todayVN.split('-')[1]))
   const [data, setData]   = useState<MonthlyData | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -423,7 +423,7 @@ const STATUS_INFO: Record<string, { label: string; color: string; icon: React.El
 }
 
 function OrderHistory() {
-  const todayVN = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const todayVN = todayVN()
   const [fromDate, setFromDate] = useState(todayVN)
   const [toDate, setToDate]     = useState(todayVN)
   const [search, setSearch]     = useState('')
@@ -493,15 +493,15 @@ function OrderHistory() {
           {[
             { label: 'Hôm nay',   fn: () => { setFromDate(todayVN); setToDate(todayVN) } },
             { label: 'Hôm qua',   fn: () => {
-              const y = new Date(Date.now() + 7*60*60*1000 - 86400000).toISOString().split('T')[0]
+              const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); const y = yesterday.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })
               setFromDate(y); setToDate(y)
             }},
             { label: '7 ngày',    fn: () => {
-              const w = new Date(Date.now() + 7*60*60*1000 - 6*86400000).toISOString().split('T')[0]
+              const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 6); const w = weekAgo.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })
               setFromDate(w); setToDate(todayVN)
             }},
             { label: 'Tháng này', fn: () => {
-              const now = new Date(Date.now() + 7*60*60*1000)
+              const now = new Date()
               const first = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`
               setFromDate(first); setToDate(todayVN)
             }},

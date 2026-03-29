@@ -1,4 +1,5 @@
 'use client'
+import { fmt, todayVN } from '@/lib/utils'
 import { fmtVNTime } from '@/lib/vntime'
 import { MOMO_QR } from '@/lib/constants'
 import { apiFetch } from '@/lib/apiFetch'
@@ -16,7 +17,6 @@ interface Order {
   delivery_address?: string; delivery_fee?: number; order_type?: string
 }
 
-const fmt = (n: number) => Number(n).toLocaleString('vi-VN')
 
 const STATUSES = [
   { key: 'all',               label: 'Tất cả',      icon: Filter,      color: '' },
@@ -44,7 +44,7 @@ const QUICK = [10000, 20000, 50000, 100000, 200000, 500000]
 type PayMethod = 'cash' | 'transfer'
 
 function getTodayVN() {
-  return new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0]
+  return todayVN()
 }
 
 // ── Pay Modal ────────────────────────────────────────────────

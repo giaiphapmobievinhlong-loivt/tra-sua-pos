@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   try {
     await ensureColumns()
 
-    const todayVN = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split("T")[0]
+    const todayVN = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })
     const date   = req.nextUrl.searchParams.get("date") || todayVN
     const status = req.nextUrl.searchParams.get("status")
 
