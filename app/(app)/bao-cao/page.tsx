@@ -13,7 +13,6 @@ import {
 } from 'recharts'
 
 // ── helpers ──────────────────────────────────────────────────
-const fmtShort = (n: number) => n >= 1_000_000 ? `${(n/1_000_000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n/1000)}k` : String(n)
 
 const MONTHS = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12']
 const MONTH_FULL = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
@@ -27,6 +26,11 @@ interface DailyData {
   hourly: { hour: number; revenue: number; count: number }[]
 }
 
+interface MonthlyTransaction {
+  id: number; type: 'thu' | 'chi'; amount: number
+  description: string; note: string; transaction_date: string; username: string
+}
+
 interface MonthlyData {
   year: number; month: number
   total_revenue: number; order_count: number; avg_order: number; total_cups?: number
@@ -34,6 +38,7 @@ interface MonthlyData {
   daily: { day: string; revenue: number; order_count: number }[]
   top_products: { product_name: string; total_qty: number; total_revenue: number }[]
   trend: { month_key: string; revenue: number; order_count: number }[]
+  transactions: MonthlyTransaction[]
 }
 
 // ── stat card ─────────────────────────────────────────────────
@@ -191,11 +196,12 @@ function DailyReport() {
 // MONTHLY REPORT TAB
 // ══════════════════════════════════════════════════════════════
 function MonthlyReport() {
-  const todayVN = todayVN()
-  const [year, setYear]   = useState(Number(todayVN.split('-')[0]))
-  const [month, setMonth] = useState(Number(todayVN.split('-')[1]))
+  const today = todayVN()
+  const [year, setYear]   = useState(Number(today.split('-')[0]))
+  const [month, setMonth] = useState(Number(today.split('-')[1]))
   const [data, setData]   = useState<MonthlyData | null>(null)
   const [loading, setLoading] = useState(false)
+  const [txFilter, setTxFilter] = useState<'all' | 'thu' | 'chi'>('all')
 
   const fetch_ = useCallback(async () => {
     setLoading(true)
@@ -295,6 +301,89 @@ function MonthlyReport() {
                 </p>
               </div>
             </div>
+
+          </div>
+
+          {/* Thu / Chi detail */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-gray-800 text-sm">📋 Chi tiết Thu Chi</h3>
+              <span className="text-xs text-gray-400">{(data.transactions || []).length} giao dịch</span>
+            </div>
+
+            {/* Filter tabs */}
+            <div className="flex gap-1.5 mb-3">
+              {(['all', 'thu', 'chi'] as const).map(f => {
+                const labels = { all: 'Tất cả', thu: 'Thu', chi: 'Chi' }
+                const counts = {
+                  all: (data.transactions || []).length,
+                  thu: (data.transactions || []).filter(t => t.type === 'thu').length,
+                  chi: (data.transactions || []).filter(t => t.type === 'chi').length,
+                }
+                const active = {
+                  all: 'bg-gray-800 text-white',
+                  thu: 'bg-green-500 text-white',
+                  chi: 'bg-red-500 text-white',
+                }
+                return (
+                  <button key={f} onClick={() => setTxFilter(f)}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                      txFilter === f ? active[f] + ' border-transparent' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                    }`}>
+                    {labels[f]}
+                    <span className={`text-xs ${txFilter === f ? 'opacity-70' : 'text-gray-400'}`}>({counts[f]})</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Filtered totals */}
+            {txFilter !== 'all' && (
+              <div className={`rounded-xl px-3 py-2 mb-3 text-sm font-bold ${txFilter === 'thu' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+                Tổng {txFilter === 'thu' ? 'thu' : 'chi'}: {fmt(
+                  (data.transactions || []).filter(t => t.type === txFilter).reduce((s, t) => s + t.amount, 0)
+                )}đ
+              </div>
+            )}
+
+            {/* List */}
+            {(data.transactions || []).filter(t => txFilter === 'all' || t.type === txFilter).length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-4">Chưa có giao dịch</p>
+            ) : (
+              <div className="space-y-0 max-h-72 overflow-y-auto -mx-1 px-1">
+                {Object.entries(
+                  (data.transactions || [])
+                    .filter(t => txFilter === 'all' || t.type === txFilter)
+                    .reduce<Record<string, MonthlyTransaction[]>>((acc, t) => {
+                      ;(acc[t.transaction_date] ||= []).push(t)
+                      return acc
+                    }, {})
+                ).map(([date, txs]) => (
+                  <div key={date} className="mb-2">
+                    <p className="text-xs font-semibold text-gray-400 py-1 sticky top-0 bg-white">
+                      {date.slice(8, 10)}/{date.slice(5, 7)}/{date.slice(0, 4)}
+                    </p>
+                    {txs.map(t => (
+                      <div key={t.id} className="flex items-start gap-2 py-2 border-b border-gray-50 last:border-0">
+                        <span className={`shrink-0 mt-0.5 px-1.5 py-0.5 rounded text-xs font-bold ${
+                          t.type === 'thu' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
+                        }`}>
+                          {t.type === 'thu' ? 'Thu' : 'Chi'}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800 truncate">{t.description || '—'}</p>
+                          {t.note && <p className="text-xs text-gray-400 truncate">{t.note}</p>}
+                          {t.username && <p className="text-xs text-gray-300">{t.username}</p>}
+                        </div>
+                        <span className={`shrink-0 font-bold text-sm ${t.type === 'thu' ? 'text-green-600' : 'text-red-500'}`}>
+                          {t.type === 'thu' ? '+' : '-'}{fmt(t.amount)}đ
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Highlight: best day */}
@@ -423,9 +512,9 @@ const STATUS_INFO: Record<string, { label: string; color: string; icon: React.El
 }
 
 function OrderHistory() {
-  const todayVN = todayVN()
-  const [fromDate, setFromDate] = useState(todayVN)
-  const [toDate, setToDate]     = useState(todayVN)
+  const today = todayVN()
+  const [fromDate, setFromDate] = useState(today)
+  const [toDate, setToDate]     = useState(today)
   const [search, setSearch]     = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [orders, setOrders]     = useState<HistoryOrder[]>([])

@@ -51,6 +51,15 @@ export async function GET(req: NextRequest) {
       WHERE transaction_date BETWEEN ${startDate} AND ${endDate}
     `
 
+    // Individual transactions for the month
+    const transactions = await sql`
+      SELECT t.id, t.type, t.amount::numeric, t.description, t.note, t.transaction_date, u.username
+      FROM transactions t
+      LEFT JOIN users u ON t.user_id = u.id
+      WHERE t.transaction_date BETWEEN ${startDate} AND ${endDate}
+      ORDER BY t.transaction_date ASC, t.created_at ASC
+    `
+
     // Top products
     const top_products = await sql`
       SELECT
@@ -105,6 +114,7 @@ export async function GET(req: NextRequest) {
       daily: daily.map(d => ({ ...d, revenue: Number(d.revenue), order_count: Number(d.order_count) })),
       top_products: top_products.map(p => ({ ...p, total_qty: Number(p.total_qty), total_revenue: Number(p.total_revenue) })),
       trend: trend.map(t => ({ ...t, revenue: Number(t.revenue), order_count: Number(t.order_count) })),
+      transactions: transactions.map(t => ({ ...t, amount: Number(t.amount) })),
     }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } })
   } catch (error) {
     console.error(error)
