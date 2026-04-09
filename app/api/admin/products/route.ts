@@ -2,18 +2,8 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
 
-// Auto-migrate: add sort_order column if not exists
-async function ensureSortOrder() {
-  try {
-    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0`
-  } catch {
-    // Column already exists or migration not needed
-  }
-}
-
 export async function GET() {
   try {
-    await ensureSortOrder()
     const products = await sql`
       SELECT p.*, c.name as category_name
       FROM products p
@@ -28,7 +18,6 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    await ensureSortOrder()
     const { name, price, category_id, image_url, is_active, sort_order } = await req.json()
     if (!name || !price || !category_id) return NextResponse.json({ error: 'Thiếu thông tin bắt buộc' }, { status: 400 })
 

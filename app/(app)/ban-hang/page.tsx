@@ -444,6 +444,7 @@ function CartPanel({
 // ── Main Page ────────────────────────────────────────────────
 export default function BanHangPage() {
   const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<{ id: number; name: string; slug: string }[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('all')
@@ -461,20 +462,26 @@ export default function BanHangPage() {
   const [manualType, setManualType] = useState<'percent'|'fixed'>('percent')
 
   const fetchProducts = useCallback(async () => {
-    const res = await fetch('/api/products')
+    const res = await fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' })
     const data = await res.json()
     setProducts(data.products || [])
+    setCategories(data.categories || [])
   }, [])
 
   const fetchDiscounts = useCallback(async () => {
-    const res = await fetch('/api/discounts')
+    const res = await fetch('/api/discounts', { cache: 'no-store' })
     const data = await res.json()
     setDiscounts(data.discounts || [])
   }, [])
 
-  useEffect(() => { fetchProducts(); fetchDiscounts() }, [fetchProducts, fetchDiscounts])
+  useEffect(() => {
+    fetchProducts()
+    fetchDiscounts()
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchProducts() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [fetchProducts, fetchDiscounts])
 
-  const categoryNames = Array.from(new Set(products.map(p => p.category_name)))
   const filtered = products.filter(p => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase())
     const matchCat = activeCategory === 'all' || p.category_name === activeCategory
@@ -615,12 +622,12 @@ export default function BanHangPage() {
               }`}>
               Tất cả
             </button>
-            {categoryNames.map(cat => (
-              <button key={cat} onClick={() => setActiveCategory(cat)}
+            {categories.map(cat => (
+              <button key={cat.id} onClick={() => setActiveCategory(cat.name)}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap border transition-all ${
-                  activeCategory === cat ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-200'
+                  activeCategory === cat.name ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-200'
                 }`}>
-                {cat}
+                {cat.name}
               </button>
             ))}
           </div>
