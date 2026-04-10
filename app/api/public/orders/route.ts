@@ -6,27 +6,6 @@ function generateOrderCode() {
   return Math.floor(100000 + Math.random() * 900000).toString()
 }
 
-async function ensureColumns() {
-  try { await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'pos'` } catch { /**/ }
-  try { await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_name VARCHAR(100) DEFAULT ''` } catch { /**/ }
-  try { await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone VARCHAR(20) DEFAULT ''` } catch { /**/ }
-  try { await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address TEXT DEFAULT ''` } catch { /**/ }
-  try { await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_fee DECIMAL(10,2) DEFAULT 0` } catch { /**/ }
-  try { await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type VARCHAR(20) DEFAULT 'dine_in'` } catch { /**/ }
-  try { await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount DECIMAL(10,2) DEFAULT 0` } catch { /**/ }
-  try { await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_name VARCHAR(100) DEFAULT ''` } catch { /**/ }
-  try { await sql`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS item_note TEXT DEFAULT ''` } catch { /**/ }
-  // settings table for delivery fee
-  try {
-    await sql`CREATE TABLE IF NOT EXISTS settings (
-      key VARCHAR(100) PRIMARY KEY,
-      value TEXT NOT NULL,
-      updated_at TIMESTAMPTZ DEFAULT NOW()
-    )`
-    await sql`INSERT INTO settings (key, value) VALUES ('delivery_fee', '15000') ON CONFLICT (key) DO NOTHING`
-  } catch { /**/ }
-}
-
 export async function GET(req: NextRequest) {
   try {
     const code = req.nextUrl.searchParams.get('code')
@@ -43,7 +22,6 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    await ensureColumns()
     const body = await req.json()
     const {
       items, total_amount, discount_amount, discount_name, note,
@@ -53,7 +31,6 @@ export async function POST(req: NextRequest) {
 
     if (!items?.length) return NextResponse.json({ error: 'Đơn hàng trống' }, { status: 400 })
 
-    // Validate delivery fields
     if (order_type === 'delivery') {
       if (!delivery_address?.trim()) return NextResponse.json({ error: 'Vui lòng nhập địa chỉ giao hàng' }, { status: 400 })
       if (!customer_phone?.trim()) return NextResponse.json({ error: 'Vui lòng nhập số điện thoại' }, { status: 400 })
@@ -79,15 +56,19 @@ export async function POST(req: NextRequest) {
     `
     const order = rows[0]
 
-    for (const item of items) {
-      const prods = await sql`SELECT name FROM products WHERE id = ${item.product_id}`
-      const productName = prods[0]?.name || 'Unknown'
-      await sql`
+    // Fetch all product names in one query
+    const productIds = items.map((i: { product_id: number }) => i.product_id)
+    const prods = await sql`SELECT id, name FROM products WHERE id = ANY(${productIds})`
+    const nameMap = Object.fromEntries(prods.map((p) => [p.id, p.name]))
+
+    // Insert all items in parallel
+    await Promise.all(items.map((item: { product_id: number; quantity: number; unit_price: number; item_note?: string }) =>
+      sql`
         INSERT INTO order_items (order_id, product_id, product_name, quantity, unit_price, subtotal, item_note)
-        VALUES (${order.id}, ${item.product_id}, ${productName}, ${item.quantity},
-          ${item.unit_price}, ${item.quantity * item.unit_price}, ${item.item_note || ''})
+        VALUES (${order.id}, ${item.product_id}, ${nameMap[item.product_id] || 'Unknown'},
+                ${item.quantity}, ${item.unit_price}, ${item.quantity * item.unit_price}, ${item.item_note || ''})
       `
-    }
+    ))
 
     const orderItems = await sql`SELECT * FROM order_items WHERE order_id = ${order.id}`
     return NextResponse.json({ success: true, order_code: orderCode, order: { ...order, items: orderItems } })

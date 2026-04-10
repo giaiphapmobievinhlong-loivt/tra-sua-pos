@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Pencil, Trash2, Package, Layers, Users, X, Check, Eye, EyeOff, Tag, Percent, DollarSign, ToggleLeft, ToggleRight, QrCode, Printer, ExternalLink, Wrench, ChefHat } from 'lucide-react'
+import { Plus, Pencil, Trash2, Package, Layers, Users, X, Eye, EyeOff, Tag, Percent, DollarSign, ToggleLeft, ToggleRight, QrCode, Printer, ExternalLink, ChefHat } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────
 interface Category {
@@ -115,7 +115,9 @@ function ProductsTab({ categories }: { categories: Category[] }) {
   }
 
   async function handleDelete(p: Product) {
-    await fetch(`/api/admin/products/${p.id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/admin/products/${p.id}`, { method: 'DELETE' })
+    const d = await res.json()
+    if (!res.ok) { alert(d.error || 'Không thể xóa'); return }
     setDeleting(null)
     fetch_()
   }
@@ -658,7 +660,9 @@ function DiscountsTab() {
 
   async function handleDelete() {
     if (!deleting) return
-    await fetch(`/api/discounts/${deleting.id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/discounts/${deleting.id}`, { method: 'DELETE' })
+    const d = await res.json()
+    if (!res.ok) { alert(d.error || 'Không thể xóa'); return }
     setDeleting(null)
     fetch_()
   }

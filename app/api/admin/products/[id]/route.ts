@@ -2,15 +2,8 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
 
-async function ensureSortOrder() {
-  try {
-    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0`
-  } catch { /* already exists */ }
-}
-
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await ensureSortOrder()
     const { id: idStr } = await params
     const id = Number(idStr)
     const body = await req.json()
