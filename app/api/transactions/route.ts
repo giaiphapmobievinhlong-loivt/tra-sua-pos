@@ -8,7 +8,8 @@ export async function GET(req: NextRequest) {
     const date = req.nextUrl.searchParams.get('date') || new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0]
     
     const transactions = await sql`
-      SELECT t.*, u.username
+      SELECT t.*, u.username,
+        TO_CHAR(t.created_at + interval '7 hours', 'YYYY-MM-DD HH24:MI:SS') as vn_created_at
       FROM transactions t
       LEFT JOIN users u ON t.user_id = u.id
       WHERE t.transaction_date = ${date}

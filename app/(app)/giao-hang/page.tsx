@@ -10,7 +10,7 @@ interface DeliveryOrder {
   id: number; order_code: string; total_amount: number; delivery_fee: number
   customer_name: string; customer_phone: string; delivery_address: string
   note: string; status: string; is_paid: boolean; pay_method: string | null
-  created_at: string; items: OrderItem[]
+  created_at: string; vn_created_at?: string; items: OrderItem[]
 }
 
 
@@ -88,7 +88,7 @@ function DeliveryCard({ order, onStatusChange, onCancel, onApprovePay }: {
           </div>
           <div className="text-right shrink-0">
             <p className="font-extrabold text-orange-500 text-sm">{fmt(Number(order.total_amount))}đ</p>
-            <p className="text-[10px] text-gray-400">{fmtVNTime(order.created_at)}</p>
+            <p className="text-[10px] text-gray-400">{fmtVNTime(order.vn_created_at || order.created_at)}</p>
           </div>
         </div>
       </button>

@@ -16,6 +16,13 @@ interface Discount { id: number; name: string; type: 'percent'|'fixed'; value: n
 const QUICK_AMOUNTS = [10000, 20000, 50000, 100000, 200000, 500000]
 const TABLE_NUMBERS = ['1','2','3','4','5','6','7','8','9','10','11','12']
 type PayMethod = 'cash' | 'transfer'
+const FALLBACK_IMG = 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400'
+
+// Cloudinary HEIC URLs are not browser-compatible — force .jpg conversion
+function fixImgUrl(url: string) {
+  if (!url) return FALLBACK_IMG
+  return url.replace(/\.heic($|\?)/i, '.jpg$1')
+}
 
 // ── Discount Selector ────────────────────────────────────────
 interface DiscountSelectorProps {
@@ -641,10 +648,10 @@ export default function BanHangPage() {
                 className="bg-white rounded-xl p-2 md:p-3 text-left shadow-sm hover:shadow-md active:scale-95 hover:ring-2 hover:ring-orange-300 transition-all group">
                 <div className="aspect-square rounded-lg overflow-hidden mb-1.5 bg-gray-100">
                   <img
-                    src={product.image_url || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400'}
+                    src={fixImgUrl(product.image_url)}
                     alt={product.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                    onError={e => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400' }}
+                    onError={e => { (e.target as HTMLImageElement).src = FALLBACK_IMG }}
                   />
                 </div>
                 <p className="font-semibold text-gray-800 text-xs leading-tight line-clamp-2">{product.name}</p>

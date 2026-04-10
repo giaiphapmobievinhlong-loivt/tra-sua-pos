@@ -12,7 +12,7 @@ interface OrderItem {
 interface Order {
   id: number; order_code: string; total_amount: number; customer_paid: number; change_amount: number
   note: string; status: string; discount_amount?: number; discount_name?: string; is_paid: boolean; table_number: string | null; pay_method: string | null
-  created_at: string; username: string; items: OrderItem[]
+  created_at: string; vn_created_at?: string; username: string; items: OrderItem[]
   source?: string; customer_name?: string; customer_phone?: string
   delivery_address?: string; delivery_fee?: number; order_type?: string
 }
@@ -134,7 +134,7 @@ function OrderCard({ order, onStatusChange, onPay, onCancel }: {
   const nextStatus = isDelivery ? NEXT_STATUS[order.status] : NEXT_STATUS_NORMAL[order.status]
   const nextLabel  = isDelivery ? NEXT_LABEL[order.status]  : NEXT_LABEL_NORMAL[order.status]
   const isCancelled = order.status === 'cancelled'
-  const timeStr = fmtVNTime(order.created_at)
+  const timeStr = fmtVNTime(order.vn_created_at || order.created_at)
   return (
     <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden ${isCancelled ? 'opacity-55' : ''}`}>
       <div className="px-4 pt-3 pb-2 flex items-start justify-between gap-2">

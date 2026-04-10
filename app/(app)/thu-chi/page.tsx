@@ -13,6 +13,7 @@ interface Transaction {
   note: string
   transaction_date: string
   created_at: string
+  vn_created_at?: string
   username: string
 }
 
@@ -159,7 +160,7 @@ export default function ThuChiPage() {
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-800 text-sm truncate">{t.description}</p>
                 <p className="text-xs text-gray-400 truncate">
-                  {t.note ? `${t.note} · ` : ''}{t.username} · {fmtVNTime(t.created_at)}
+                  {t.note ? `${t.note} · ` : ''}{t.username} · {fmtVNTime(t.vn_created_at || t.created_at)}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">

@@ -517,7 +517,7 @@ function UsersTab() {
                     <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${roleInfo.color}`}>{roleInfo.label}</span>
                   </td>
                   <td className="px-5 py-4 text-gray-500 text-sm">
-                    {new Date(u.created_at).toLocaleDateString('vi-VN')}
+                    {new Date(u.created_at).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex items-center justify-end gap-2">
