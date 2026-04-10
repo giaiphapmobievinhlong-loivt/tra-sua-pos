@@ -65,6 +65,15 @@ export async function POST(req: NextRequest) {
     if (!items?.length) return NextResponse.json({ error: "Đơn hàng trống" }, { status: 400 })
 
     const orderCode = generateOrderCode()
+
+    // 1. Fetch product names
+    const productIds = items.map((i: { product_id: number }) => i.product_id)
+    const prods = await sql`SELECT id, name FROM products WHERE id = ANY(${productIds})`
+    const nameMap = Object.fromEntries(prods.map((p) => [p.id, p.name]))
+
+    type Item = { product_id: number; quantity: number; unit_price: number; item_note?: string }
+
+    // 2. Insert order
     const rows = await sql`
       INSERT INTO orders (order_code, user_id, total_amount, discount_amount, discount_name, customer_paid, change_amount, note, status, table_number, is_paid, pay_method)
       VALUES (${orderCode}, ${user.id}, ${total_amount}, ${discount_amount ?? 0}, ${discount_name || ''}, ${customer_paid ?? 0}, ${change_amount ?? 0},
@@ -73,13 +82,8 @@ export async function POST(req: NextRequest) {
     `
     const order = rows[0]
 
-    // Fetch all product names in one query
-    const productIds = items.map((i: { product_id: number }) => i.product_id)
-    const prods = await sql`SELECT id, name FROM products WHERE id = ANY(${productIds})`
-    const nameMap = Object.fromEntries(prods.map((p) => [p.id, p.name]))
-
-    // Insert all items in parallel
-    await Promise.all(items.map((item: { product_id: number; quantity: number; unit_price: number; item_note?: string }) =>
+    // 3. Insert items in parallel (dùng order.id trực tiếp — không cần subquery)
+    await Promise.all(items.map((item: Item) =>
       sql`
         INSERT INTO order_items (order_id, product_id, product_name, quantity, unit_price, subtotal, item_note)
         VALUES (${order.id}, ${item.product_id}, ${nameMap[item.product_id] || 'Unknown'},

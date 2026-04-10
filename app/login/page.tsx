@@ -85,12 +85,6 @@ export default function LoginPage() {
             {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
           </button>
         </form>
-
-        {/* <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <p className="text-xs text-gray-500 text-center font-medium mb-2">Tài khoản mặc định</p>
-          <p className="text-xs text-gray-600 text-center">Username: <strong>admin</strong> | Password: <strong>admin123</strong></p>
-          <p className="text-xs text-gray-400 text-center mt-1">(Chạy /api/setup để khởi tạo DB lần đầu)</p>
-        </div> */}
       </div>
     </div>
   )

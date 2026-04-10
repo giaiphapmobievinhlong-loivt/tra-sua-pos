@@ -3,7 +3,11 @@ import { NextResponse } from 'next/server'
 import sql from '@/lib/db'
 import bcrypt from 'bcryptjs'
 
-export async function GET() {
+export async function GET(req: import('next/server').NextRequest) {
+  const secret = req.nextUrl.searchParams.get('secret')
+  if (!secret || secret !== process.env.JWT_SECRET?.slice(0, 8)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
   try {
     // Create tables
     await sql`

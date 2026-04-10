@@ -71,29 +71,4 @@ CREATE TABLE IF NOT EXISTS transactions (
   transaction_date DATE DEFAULT CURRENT_DATE,
   created_at TIMESTAMP DEFAULT NOW()
 );
-
--- Seed default admin user (password: admin123)
-INSERT INTO users (username, password_hash, full_name, role) 
-VALUES ('admin', '$2a$10$rOzJqxkYwTkrQDPP.9Ef9.vJhHjuH1PNKLKiCXPXPXPXPXPXPXPXe', 'Quản Trị Viên', 'admin')
-ON CONFLICT (username) DO NOTHING;
-
--- Seed categories
-INSERT INTO categories (name, slug) VALUES 
-  ('Trà sữa', 'tra-sua'),
-  ('Trà', 'tra'),
-  ('Cà phê', 'ca-phe'),
-  ('Nước ép', 'nuoc-ep')
-ON CONFLICT (slug) DO NOTHING;
-
--- Seed products
-INSERT INTO products (name, price, category_id, image_url) VALUES
-  ('Matcha sữa', 20000, 1, 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400'),
-  ('Matcha đá', 30000, 2, 'https://images.unsplash.com/photo-1627435601361-ec25f5b1d0e5?w=400'),
-  ('Trà sữa trân châu', 25000, 1, 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400'),
-  ('Hồng trà sữa', 25000, 1, 'https://images.unsplash.com/photo-1571934811356-5cc061b6821f?w=400'),
-  ('Trà đào', 30000, 2, 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400'),
-  ('Trà vải', 28000, 2, 'https://images.unsplash.com/photo-1544145945-f90425340c7e?w=400'),
-  ('Cà phê sữa', 25000, 3, 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400'),
-  ('Bạc xỉu', 22000, 3, 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400')
-ON CONFLICT DO NOTHING;
 `
