@@ -19,7 +19,15 @@ export async function GET() {
         ORDER BY c.name
       `,
     ])
-    return NextResponse.json({ products, categories }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } })
+    return NextResponse.json({ products, categories }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Surrogate-Control': 'no-store',
+        'CDN-Cache-Control': 'no-store',
+        'Vercel-CDN-Cache-Control': 'no-store',
+      }
+    })
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 })
