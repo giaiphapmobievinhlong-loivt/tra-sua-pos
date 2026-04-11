@@ -95,8 +95,7 @@ export async function GET(req: NextRequest) {
       FROM order_items oi
       JOIN orders o ON o.id = oi.order_id
       WHERE o.created_at >= ${tzStart}::timestamptz AND o.created_at <= ${tzEnd}::timestamptz
-        AND o.status != 'cancelled'
-        AND o.is_paid = true
+        AND o.status = 'completed'
     `
 
     const totalRevenue = Number(totals[0].total_revenue)

@@ -5,7 +5,7 @@ import { getUserFromRequest } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
   try {
-    const date = req.nextUrl.searchParams.get('date') || new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0]
+    const date = req.nextUrl.searchParams.get('date') || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })
     
     const transactions = await sql`
       SELECT t.*, u.username,
@@ -15,7 +15,9 @@ export async function GET(req: NextRequest) {
       WHERE t.transaction_date = ${date}
       ORDER BY t.created_at DESC
     `
-    return NextResponse.json({ transactions })
+    return NextResponse.json({ transactions }, {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' }
+    })
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 })
@@ -31,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     const transactions = await sql`
       INSERT INTO transactions (user_id, type, amount, description, note, transaction_date)
-      VALUES (${user.id}, ${type}, ${amount}, ${description}, ${note || ''}, ${transaction_date || 'now()'})
+      VALUES (${user.id}, ${type}, ${amount}, ${description}, ${note || ''}, ${transaction_date || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })})
       RETURNING *
     `
     return NextResponse.json({ success: true, transaction: transactions[0] })
