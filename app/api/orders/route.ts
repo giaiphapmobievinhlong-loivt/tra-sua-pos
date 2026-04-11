@@ -47,7 +47,9 @@ export async function GET(req: NextRequest) {
       items: itemsByOrder[o.id as number] || [],
     }))
 
-    return NextResponse.json({ orders: ordersWithItems, date_used: date, total: ordersWithItems.length })
+    return NextResponse.json({ orders: ordersWithItems, date_used: date, total: ordersWithItems.length }, {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' }
+    })
   } catch (error) {
     console.error("[GET /api/orders]", error)
     return NextResponse.json({ error: String(error), orders: [] }, { status: 500 })

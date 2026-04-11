@@ -82,7 +82,16 @@ function DailyReport() {
     } finally { setLoading(false) }
   }, [date])
 
-  useEffect(() => { fetch_() }, [fetch_])
+  useEffect(() => {
+    fetch_()
+    // Auto-refresh 30s khi đang xem hôm nay
+    const isToday = date === todayVN()
+    if (!isToday) return
+    const iv = setInterval(fetch_, 30000)
+    const onVisible = () => { if (document.visibilityState === 'visible') fetch_() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { clearInterval(iv); document.removeEventListener('visibilitychange', onVisible) }
+  }, [fetch_, date])
 
   const hourlyChart = (data?.hourly || []).map(h => ({ name: `${h.hour}h`, revenue: h.revenue, count: h.count }))
 

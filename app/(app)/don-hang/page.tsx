@@ -259,8 +259,13 @@ export default function DonHangPage() {
   useEffect(() => {
     setLoading(true)
     fetchOrders()
-    intervalRef.current = setInterval(fetchOrders, 15000)
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+    intervalRef.current = setInterval(fetchOrders, 5000)
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchOrders() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [fetchOrders])
 
   async function handleStatusChange(id: number, status: string) {

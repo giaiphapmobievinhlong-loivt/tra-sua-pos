@@ -85,20 +85,26 @@ export async function GET(req: NextRequest) {
         total_chi:     Number(thuChi[0].total_chi),
         estimated_profit: Number(stats[0].total_revenue) + Number(thuChi[0].total_thu) - Number(thuChi[0].total_chi),
         daily, top_products, trend,
-      }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } })
+      }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' } })
     }
 
     // ── Daily report ───────────────────────────────────────────
+    // Dùng < nextDay để tránh edge case cuối ngày
+    const nextDateObj = new Date(`${date}T00:00:00+07:00`)
+    nextDateObj.setDate(nextDateObj.getDate() + 1)
+    const nextDate = nextDateObj.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })
+
     const dateStart = `${date}T00:00:00+07:00`
-    const dateEnd   = `${date}T23:59:59+07:00`
+    const dateEndEx = `${nextDate}T00:00:00+07:00`  // exclusive upper bound
 
     const [stats, thuChi, recent_orders, hourly, cups, top_products] = await Promise.all([
+      // Doanh thu = đơn is_paid=true (tiền thực nhận)
       sql`
         SELECT COALESCE(SUM(total_amount),0) as total_revenue,
                COUNT(*) as order_count,
                COALESCE(AVG(total_amount),0) as avg_order
         FROM orders
-        WHERE created_at >= ${dateStart}::timestamptz AND created_at <= ${dateEnd}::timestamptz
+        WHERE created_at >= ${dateStart}::timestamptz AND created_at < ${dateEndEx}::timestamptz
           AND status != 'cancelled' AND is_paid = true
       `,
       sql`
@@ -109,31 +115,33 @@ export async function GET(req: NextRequest) {
       sql`
         SELECT o.*, TO_CHAR(o.created_at + interval '7 hours', 'YYYY-MM-DD HH24:MI:SS') as vn_created_at, u.username
         FROM orders o LEFT JOIN users u ON o.user_id = u.id
-        WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at <= ${dateEnd}::timestamptz
-        ORDER BY o.created_at DESC LIMIT 10
+        WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at < ${dateEndEx}::timestamptz
+        ORDER BY o.created_at DESC LIMIT 20
       `,
       sql`
         SELECT EXTRACT(HOUR FROM (created_at + interval '7 hours'))::int as hour,
                COALESCE(SUM(total_amount),0) as revenue,
                COUNT(*) as count
         FROM orders
-        WHERE created_at >= ${dateStart}::timestamptz AND created_at <= ${dateEnd}::timestamptz
+        WHERE created_at >= ${dateStart}::timestamptz AND created_at < ${dateEndEx}::timestamptz
           AND status != 'cancelled' AND is_paid = true
         GROUP BY hour ORDER BY hour
       `,
+      // Tổng ly = tất cả đơn đã hoàn thành (kể cả chưa thu tiền)
       sql`
         SELECT COALESCE(SUM(oi.quantity),0)::int as total_cups
         FROM order_items oi JOIN orders o ON o.id = oi.order_id
-        WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at <= ${dateEnd}::timestamptz
-          AND o.status != 'cancelled' AND o.is_paid = true
+        WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at < ${dateEndEx}::timestamptz
+          AND o.status = 'completed'
       `,
+      // Top sản phẩm = theo đơn hoàn thành
       sql`
         SELECT oi.product_name,
                SUM(oi.quantity)::int as total_qty,
-               SUM(oi.subtotal * (1 - COALESCE(o.discount_amount, 0)::float / NULLIF(o.total_amount + COALESCE(o.discount_amount, 0), 0)))::numeric as total_revenue
+               SUM(oi.subtotal)::numeric as total_revenue
         FROM order_items oi JOIN orders o ON o.id = oi.order_id
-        WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at <= ${dateEnd}::timestamptz
-          AND o.status != 'cancelled' AND o.is_paid = true
+        WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at < ${dateEndEx}::timestamptz
+          AND o.status = 'completed'
         GROUP BY oi.product_name
         ORDER BY total_qty DESC LIMIT 10
       `,
@@ -147,7 +155,7 @@ export async function GET(req: NextRequest) {
       total_cups:       Number(cups[0].total_cups),
       top_products: top_products.map(p => ({ ...p, total_qty: Number(p.total_qty), total_revenue: Number(p.total_revenue) })),
       recent_orders, hourly,
-    }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } })
+    }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' } })
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: String(error) }, { status: 500 })
