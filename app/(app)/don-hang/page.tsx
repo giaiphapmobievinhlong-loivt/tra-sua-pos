@@ -211,21 +211,24 @@ function OrderCard({ order, onStatusChange, onPay, onCancel }: {
 export default function DonHangPage() {
   const [orders, setOrders]             = useState<Order[]>([])
   const [loading, setLoading]           = useState(true)
+  const [refreshing, setRefreshing]     = useState(false)
   const [error, setError]               = useState('')
   const [date, setDate]                 = useState(getTodayVN)
   const [activeFilter, setActiveFilter] = useState('all')
   const [payingOrder, setPayingOrder]   = useState<Order | null>(null)
   const [activeTab, setActiveTab]        = useState<'orders'|'delivery'>('orders')
   const intervalRef  = useRef<ReturnType<typeof setInterval> | null>(null)
+  const isFirstLoad  = useRef(true)
   const seenIds            = useRef<Set<number>>(new Set())
   const seenConfirmIds     = useRef<Set<number>>(new Set())
   const [newWebOrders, setNewWebOrders]           = useState(0)
   const [awaitingConfirmOrders, setAwaitingConfirmOrders] = useState<Order[]>([])
   const audioRef           = useRef<HTMLAudioElement | null>(null)
 
-  const fetchOrders = useCallback(async () => {
+  const fetchOrders = useCallback(async (opts?: { showRefreshing?: boolean }) => {
     try {
       setError('')
+      if (opts?.showRefreshing) setRefreshing(true)
       const res = await fetch(`/api/orders?date=${date}`)
       const data = await res.json()
       if (!res.ok) {
@@ -252,14 +255,19 @@ export default function DonHangPage() {
     } catch (e) {
       setError(`Lỗi kết nối: ${e}`)
     } finally {
-      setLoading(false)
+      if (isFirstLoad.current) {
+        isFirstLoad.current = false
+        setLoading(false)
+      }
+      setRefreshing(false)
     }
   }, [date])
 
   useEffect(() => {
+    isFirstLoad.current = true
     setLoading(true)
     fetchOrders()
-    intervalRef.current = setInterval(fetchOrders, 5000)
+    intervalRef.current = setInterval(() => fetchOrders(), 5000)
     const onVisible = () => { if (document.visibilityState === 'visible') fetchOrders() }
     document.addEventListener('visibilitychange', onVisible)
     return () => {
@@ -346,9 +354,9 @@ export default function DonHangPage() {
           {/* hidden audio beep for web orders */}
           <audio ref={audioRef} src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAA..." preload="auto" style={{display:'none'}} />
           <div className="flex items-center gap-2">
-            <button onClick={() => { setLoading(true); fetchOrders() }}
+            <button onClick={() => fetchOrders({ showRefreshing: true })}
               className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-xl transition-all">
-              <RefreshCw size={17} className={loading ? 'animate-spin' : ''} />
+              <RefreshCw size={17} className={refreshing ? 'animate-spin' : ''} />
             </button>
             <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2">
               <Calendar size={14} className="text-gray-400 shrink-0" />
@@ -432,7 +440,7 @@ export default function DonHangPage() {
             </div>
             <p className="text-sm text-gray-400 font-medium">Không có đơn hàng</p>
             <p className="text-xs text-gray-300 mt-1">Ngày {date}</p>
-            <button onClick={() => { setLoading(true); fetchOrders() }}
+            <button onClick={() => fetchOrders({ showRefreshing: true })}
               className="mt-4 text-xs text-orange-500 font-semibold border border-orange-200 bg-orange-50 px-4 py-2 rounded-xl hover:bg-orange-100 transition-all">
               Tải lại
             </button>

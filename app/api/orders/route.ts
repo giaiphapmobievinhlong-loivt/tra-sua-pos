@@ -12,29 +12,34 @@ export async function GET(req: NextRequest) {
     const dateStart = `${date}T00:00:00+07:00`
     const dateEnd   = `${date}T23:59:59+07:00`
 
-    const orders = status && status !== "all"
-      ? await sql`
-          SELECT o.*, TO_CHAR(o.created_at + interval '7 hours', 'YYYY-MM-DD HH24:MI:SS') as vn_created_at, u.username
-          FROM orders o LEFT JOIN users u ON o.user_id = u.id
-          WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at <= ${dateEnd}::timestamptz
-            AND o.status = ${status}
-          ORDER BY o.created_at DESC
-        `
-      : await sql`
-          SELECT o.*, TO_CHAR(o.created_at + interval '7 hours', 'YYYY-MM-DD HH24:MI:SS') as vn_created_at, u.username
-          FROM orders o LEFT JOIN users u ON o.user_id = u.id
-          WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at <= ${dateEnd}::timestamptz
-          ORDER BY
-            CASE o.status WHEN 'pending' THEN 1 WHEN 'brewing' THEN 2
-              WHEN 'ready' THEN 3 WHEN 'completed' THEN 4 WHEN 'cancelled' THEN 5 ELSE 6
-            END, o.created_at DESC
-        `
+    // Chạy song song: lấy orders + tất cả items trong ngày cùng lúc
+    const [orders, allItemsRaw] = await Promise.all([
+      status && status !== "all"
+        ? sql`
+            SELECT o.*, TO_CHAR(o.created_at + interval '7 hours', 'YYYY-MM-DD HH24:MI:SS') as vn_created_at, u.username
+            FROM orders o LEFT JOIN users u ON o.user_id = u.id
+            WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at <= ${dateEnd}::timestamptz
+              AND o.status = ${status}
+            ORDER BY o.created_at DESC
+          `
+        : sql`
+            SELECT o.*, TO_CHAR(o.created_at + interval '7 hours', 'YYYY-MM-DD HH24:MI:SS') as vn_created_at, u.username
+            FROM orders o LEFT JOIN users u ON o.user_id = u.id
+            WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at <= ${dateEnd}::timestamptz
+            ORDER BY
+              CASE o.status WHEN 'pending' THEN 1 WHEN 'brewing' THEN 2
+                WHEN 'ready' THEN 3 WHEN 'completed' THEN 4 WHEN 'cancelled' THEN 5 ELSE 6
+              END, o.created_at DESC
+          `,
+      // Lấy toàn bộ items trong ngày (không cần biết order ids trước)
+      sql`
+        SELECT oi.* FROM order_items oi
+        JOIN orders o ON o.id = oi.order_id
+        WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at <= ${dateEnd}::timestamptz
+      `,
+    ])
 
-    // Fetch all items in one query instead of N queries
-    const orderIds = orders.map((o: Record<string, unknown>) => o.id)
-    const allItems = orderIds.length
-      ? await sql`SELECT * FROM order_items WHERE order_id = ANY(${orderIds})`
-      : []
+    const allItems = allItemsRaw
 
     const itemsByOrder: Record<number, unknown[]> = {}
     for (const item of allItems) {
