@@ -502,6 +502,221 @@ function MonthlyReport() {
 }
 
 // ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+// RANGE REPORT TAB
+// ══════════════════════════════════════════════════════════════
+interface RangeData {
+  from: string; to: string
+  total_revenue: number; order_count: number; avg_order: number
+  total_discount: number; total_cups: number
+  total_thu: number; total_chi: number; estimated_profit: number
+  daily?: { day: string; revenue: number; order_count: number; cups: number }[]
+  top_products?: { product_name: string; total_qty: number; total_revenue: number }[]
+  pay_breakdown?: { pay_method: string | null; order_count: number; revenue: number }[]
+}
+
+function RangeReport() {
+  const today = todayVN()
+  const firstOfMonth = today.slice(0, 8) + '01'
+  const [from, setFrom] = useState(firstOfMonth)
+  const [to, setTo]     = useState(today)
+  const [data, setData] = useState<RangeData | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const fetch_ = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/reports/range?from=${from}&to=${to}&t=${Date.now()}`, { cache: 'no-store' })
+      if (!res.ok) return
+      const json = await res.json()
+      if (json.error) return
+      setData(json)
+    } finally { setLoading(false) }
+  }, [from, to])
+
+  useEffect(() => { fetch_() }, [fetch_])
+
+  // Shortcuts
+  function setRange(f: string, t: string) { setFrom(f); setTo(t) }
+  function thisMonth() {
+    const d = new Date(); const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0')
+    setRange(`${y}-${m}-01`, today)
+  }
+  function lastMonth() {
+    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1)
+    const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0')
+    const last = new Date(y, d.getMonth() + 1, 0)
+    setRange(`${y}-${m}-01`, `${y}-${m}-${String(last.getDate()).padStart(2, '0')}`)
+  }
+  function last7() { const d = new Date(); d.setDate(d.getDate() - 6); setRange(d.toLocaleDateString('en-CA'), today) }
+  function last30() { const d = new Date(); d.setDate(d.getDate() - 29); setRange(d.toLocaleDateString('en-CA'), today) }
+  function thisYear() { setRange(`${today.slice(0, 4)}-01-01`, today) }
+
+  const maxRevDay = Math.max(...(data?.daily || []).map(d => d.revenue), 1)
+
+  return (
+    <div className="space-y-4">
+      {/* Date range picker */}
+      <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
+        <div className="flex gap-2 items-center">
+          <div className="flex-1">
+            <p className="text-[10px] text-gray-400 font-medium mb-1">Từ ngày</p>
+            <input type="date" value={from} onChange={e => setFrom(e.target.value)}
+              className="w-full text-sm font-semibold text-gray-800 border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-orange-400" />
+          </div>
+          <div className="text-gray-300 mt-4">→</div>
+          <div className="flex-1">
+            <p className="text-[10px] text-gray-400 font-medium mb-1">Đến ngày</p>
+            <input type="date" value={to} onChange={e => setTo(e.target.value)}
+              className="w-full text-sm font-semibold text-gray-800 border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-orange-400" />
+          </div>
+          <button onClick={fetch_}
+            className="mt-4 px-3 py-2 bg-orange-500 text-white rounded-xl text-xs font-bold hover:bg-orange-600 active:scale-95 transition-all">
+            Xem
+          </button>
+        </div>
+        {/* Quick shortcuts */}
+        <div className="flex flex-wrap gap-1.5">
+          {[
+            { label: '7 ngày', fn: last7 },
+            { label: '30 ngày', fn: last30 },
+            { label: 'Tháng này', fn: thisMonth },
+            { label: 'Tháng trước', fn: lastMonth },
+            { label: 'Năm này', fn: thisYear },
+          ].map(s => (
+            <button key={s.label} onClick={s.fn}
+              className="px-3 py-1 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-600 hover:bg-orange-100 hover:text-orange-700 transition-all">
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading && <div className="text-center py-10 text-gray-400 text-sm">Đang tải...</div>}
+
+      {data && !loading && (
+        <>
+          <p className="text-xs text-gray-400 text-center">
+            {fmtVNDate(data.from)} — {fmtVNDate(data.to)}
+          </p>
+
+          {/* Stats grid */}
+          <div className="grid grid-cols-2 gap-3">
+            <StatCard label="Doanh thu" value={`${fmt(data.total_revenue)}đ`} icon={DollarSign} color="bg-orange-50" />
+            <StatCard label="Số đơn" value={String(data.order_count)} sub="đơn hoàn thành" icon={ShoppingCart} color="bg-blue-50" />
+            <StatCard label="Trung bình/đơn" value={`${fmt(data.avg_order)}đ`} icon={BarChart2} color="bg-purple-50" />
+            <StatCard label="Tổng ly bán" value={String(data.total_cups)} sub="ly" icon={ShoppingCart} color="bg-yellow-50" />
+            <StatCard label="Thu ngoài" value={`${fmt(data.total_thu)}đ`} icon={TrendingUp} color="bg-green-50" />
+            <StatCard label="Chi ngoài" value={`${fmt(data.total_chi)}đ`} icon={TrendingUp} color="bg-red-50" />
+            <div className="col-span-2">
+              <StatCard label="Lợi nhuận ước tính" value={`${fmt(data.estimated_profit)}đ`} sub="Doanh thu + Thu - Chi" icon={TrendingUp} color="bg-emerald-50" />
+            </div>
+          </div>
+
+          {/* Phương thức thanh toán */}
+          {(data.pay_breakdown?.length ?? 0) > 0 && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+              <h3 className="font-bold text-gray-800 mb-3 text-sm">💳 Phương thức thanh toán</h3>
+              <div className="space-y-2">
+                {(data.pay_breakdown ?? []).map(p => (
+                  <div key={p.pay_method || 'other'} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{p.pay_method === 'cash' ? '💵 Tiền mặt' : p.pay_method === 'transfer' ? '📱 Chuyển khoản' : '—'}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm font-bold text-gray-800">{fmt(p.revenue)}đ</span>
+                      <span className="text-xs text-gray-400 ml-2">({p.order_count} đơn)</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Biểu đồ doanh thu theo ngày */}
+          {(data.daily?.length ?? 0) > 1 && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+              <h3 className="font-bold text-gray-800 mb-4 text-sm">📊 Doanh thu theo ngày</h3>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={(data.daily ?? []).map(d => ({ name: d.day.slice(5), revenue: d.revenue, cups: d.cups }))} margin={{ left: -10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} tickFormatter={fmtShort} width={42} />
+                  <Tooltip formatter={(v: number, name: string) => [name === 'revenue' ? `${fmt(v)}đ` : `${v} ly`, name === 'revenue' ? 'Doanh thu' : 'Số ly']} />
+                  <Bar dataKey="revenue" fill="#f97316" radius={[3,3,0,0]} name="revenue" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Bảng ngày chi tiết */}
+          {(data.daily?.length ?? 0) > 0 && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+              <h3 className="font-bold text-gray-800 mb-3 text-sm">📋 Chi tiết theo ngày</h3>
+              <div className="space-y-0">
+                <div className="flex text-[10px] text-gray-400 font-semibold pb-2 border-b border-gray-100">
+                  <span className="flex-1">Ngày</span>
+                  <span className="w-16 text-right">Đơn</span>
+                  <span className="w-16 text-right">Ly</span>
+                  <span className="w-24 text-right">Doanh thu</span>
+                </div>
+                {(data.daily ?? []).map(d => (
+                  <div key={d.day} className="flex items-center py-2 border-b border-gray-50 last:border-0">
+                    <span className="flex-1 text-xs font-medium text-gray-700">{fmtVNDate(d.day)}</span>
+                    <span className="w-16 text-right text-xs text-gray-500">{d.order_count}</span>
+                    <span className="w-16 text-right text-xs text-gray-500">{d.cups}</span>
+                    <span className="w-24 text-right text-xs font-bold text-orange-600 tabular-nums">{fmt(d.revenue)}đ</span>
+                  </div>
+                ))}
+                <div className="flex items-center pt-2 font-bold">
+                  <span className="flex-1 text-xs text-gray-700">Tổng</span>
+                  <span className="w-16 text-right text-xs text-blue-700">{data.order_count}</span>
+                  <span className="w-16 text-right text-xs text-yellow-700">{data.total_cups}</span>
+                  <span className="w-24 text-right text-xs text-orange-700 tabular-nums">{fmt(data.total_revenue)}đ</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Top sản phẩm */}
+          {(data.top_products?.length ?? 0) > 0 && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+              <h3 className="font-bold text-gray-800 mb-3 text-sm">🧋 Top sản phẩm</h3>
+              <div className="space-y-2">
+                {(data.top_products ?? []).map((p, i) => {
+                  const maxQty = data.top_products?.[0]?.total_qty || 1
+                  const pct = Math.round((p.total_qty / maxQty) * 100)
+                  return (
+                    <div key={p.product_name}>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-gray-400 w-4">{i + 1}</span>
+                          <p className="text-sm font-medium text-gray-800 truncate">{p.product_name}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <p className="text-xs font-bold text-orange-600">{p.total_qty} ly</p>
+                          <p className="text-xs text-gray-400">{fmt(p.total_revenue)}đ</p>
+                        </div>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-orange-400 rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {data.order_count === 0 && (
+            <div className="text-center py-8 text-gray-400 text-sm">Không có đơn hàng trong khoảng thời gian này</div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 // ORDER HISTORY TAB
 // ══════════════════════════════════════════════════════════════
 interface OrderItem { id: number; product_name: string; quantity: number; unit_price: number; subtotal: number; item_note?: string }
@@ -813,7 +1028,7 @@ function OrderHistory() {
 // VN time helpers imported from lib/vntime
 
 export default function BaoCaoPage() {
-  const [tab, setTab] = useState<'daily' | 'monthly' | 'history'>('daily')
+  const [tab, setTab] = useState<'daily' | 'monthly' | 'range' | 'history'>('daily')
 
   return (
     <div className="h-full overflow-y-auto">
@@ -823,29 +1038,25 @@ export default function BaoCaoPage() {
           <p className="text-gray-400 text-xs mt-0.5">Phân tích doanh thu chi tiết</p>
         </div>
 
-        <div className="flex gap-1.5 mb-5 bg-gray-100 p-1 rounded-2xl">
-          <button onClick={() => setTab('daily')}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${
-              tab === 'daily' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}>
-            📅 Theo Ngày
-          </button>
-          <button onClick={() => setTab('monthly')}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${
-              tab === 'monthly' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}>
-            📆 Theo Tháng
-          </button>
-          <button onClick={() => setTab('history')}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${
-              tab === 'history' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}>
-            🧾 Lịch sử
-          </button>
+        <div className="grid grid-cols-4 gap-1 mb-5 bg-gray-100 p-1 rounded-2xl">
+          {([
+            { key: 'daily',   label: '📅 Ngày' },
+            { key: 'monthly', label: '📆 Tháng' },
+            { key: 'range',   label: '📊 Tùy chọn' },
+            { key: 'history', label: '🧾 Lịch sử' },
+          ] as const).map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`py-2.5 rounded-xl text-[11px] font-bold transition-all ${
+                tab === t.key ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}>
+              {t.label}
+            </button>
+          ))}
         </div>
 
         {tab === 'daily'   && <DailyReport key="daily" />}
         {tab === 'monthly' && <MonthlyReport key="monthly" />}
+        {tab === 'range'   && <RangeReport key="range" />}
         {tab === 'history' && <OrderHistory key="history" />}
       </div>
     </div>

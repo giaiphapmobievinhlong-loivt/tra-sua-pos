@@ -9,7 +9,9 @@ export const toUtcDate = (ts: string | Date): Date => {
   const s = ts.toString()
   // Has explicit timezone info — parse directly
   if (s.includes('Z') || s.includes('+')) return new Date(s)
-  // Plain string without tz = VN time from SQL (already +7h) → parse as +07:00
+  // Plain date only "YYYY-MM-DD" (no time component)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s + 'T00:00:00+07:00')
+  // Plain datetime without tz = VN time from SQL (already +7h) → parse as +07:00
   const clean = s.replace(' ', 'T').split('.')[0]
   return new Date(clean + '+07:00')
 }
