@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '@/lib/apiFetch'
 import {
   Search, Minus, Plus, Trash2, ShoppingCart,
-  X, ChevronUp, CreditCard, Clock, Banknote, QrCode, Tag, Percent, ChevronDown, Check
+  X, ChevronUp, CreditCard, Clock, Banknote, QrCode, Tag, Percent, ChevronDown, Check, Mic, MicOff
 } from 'lucide-react'
 
 interface Product {
@@ -467,6 +467,8 @@ export default function BanHangPage() {
   const [selectedDiscount, setSelectedDiscount] = useState<Discount | null>(null)
   const [manualDiscount, setManualDiscount] = useState('')
   const [manualType, setManualType] = useState<'percent'|'fixed'>('percent')
+  const [voiceState, setVoiceState] = useState<'idle' | 'listening' | 'match' | 'nomatch'>('idle')
+  const [voiceMsg, setVoiceMsg] = useState('')
 
   const fetchProducts = useCallback(async () => {
     const res = await fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' })
@@ -525,6 +527,131 @@ export default function BanHangPage() {
 
   function removeFromCart(id: number) {
     setCart(prev => prev.filter(i => i.product.id !== id))
+  }
+
+  // Chuẩn hóa chuỗi để so sánh giọng nói (bỏ dấu, lowercase)
+  function normalize(s: string) {
+    return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').trim()
+  }
+
+  function startVoice() {
+    const SpeechRecognition = (window as unknown as Record<string, unknown>).SpeechRecognition
+      || (window as unknown as Record<string, unknown>).webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      setVoiceMsg('Trình duyệt không hỗ trợ nhận giọng nói')
+      setVoiceState('nomatch')
+      setTimeout(() => setVoiceState('idle'), 2000)
+      return
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rec = new (SpeechRecognition as any)() as any
+    rec.lang = 'vi-VN'
+    rec.interimResults = false
+    rec.maxAlternatives = 5
+
+    let didGetResult = false
+    setVoiceState('listening')
+    setVoiceMsg('Đang nghe...')
+    rec.start()
+
+    // Tự động dừng sau 8 giây nếu không có kết quả
+    setTimeout(() => {
+      if (!didGetResult) {
+        try { rec.stop() } catch { /* ignore */ }
+      }
+    }, 8000)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rec.onresult = (e: any) => {
+      didGetResult = true
+      const transcripts: string[] = []
+      for (let ri = 0; ri < e.results.length; ri++)
+        for (let ai = 0; ai < e.results[ri].length; ai++)
+          transcripts.push(e.results[ri][ai].transcript)
+
+      const NUM_WORDS: Record<string, number> = {
+        'mot': 1, 'hai': 2, 'ba': 3, 'bon': 4, 'nam': 5,
+        'sau': 6, 'bay': 7, 'tam': 8, 'chin': 9, 'muoi': 10,
+      }
+
+      // Tìm product khớp tốt nhất trong 1 đoạn text
+      function findProduct(text: string): Product | null {
+        let best: Product | null = null; let bestScore = 0
+        for (const p of products) {
+          const normName = normalize(p.name)
+          if (text === normName || text.includes(normName)) {
+            if (normName.length > bestScore) { bestScore = normName.length; best = p }
+            continue
+          }
+          const words = normName.split(/\s+/)
+          const hit = words.filter(w => w.length > 1 && text.includes(w))
+          const score = hit.length / words.length
+          if (score >= 0.6 && normName.length * score > bestScore) {
+            bestScore = normName.length * score; best = p
+          }
+        }
+        return best
+      }
+
+      // Parse số lượng ở đầu đoạn: "2 ...", "hai ..."
+      function parseQty(text: string): { qty: number; rest: string } {
+        const digit = text.match(/^(\d+)\s+(.*)/)
+        if (digit) return { qty: Math.min(20, parseInt(digit[1])), rest: digit[2] }
+        for (const [word, val] of Object.entries(NUM_WORDS)) {
+          if (text.startsWith(word + ' ')) return { qty: val, rest: text.slice(word.length + 1) }
+        }
+        return { qty: 1, rest: text }
+      }
+
+      // Tách nhiều món: dùng dấu phân cách "," | "và" | "với" | "thêm"
+      const raw = normalize(transcripts[0] || '')
+      const segments = raw.split(/,|va\b|voi\b|them\b/).map(s => s.trim()).filter(Boolean)
+
+      const found: { product: Product; qty: number }[] = []
+      for (const seg of segments) {
+        const { qty, rest } = parseQty(seg)
+        // Thử toàn đoạn trước, nếu không được thử bỏ phần số
+        const p = findProduct(seg) || findProduct(rest)
+        if (p) {
+          const ex = found.find(f => f.product.id === p.id)
+          if (ex) ex.qty += qty
+          else found.push({ product: p, qty })
+        }
+      }
+
+      if (found.length > 0) {
+        setCart(prev => {
+          let next = [...prev]
+          for (const { product: p, qty } of found) {
+            const ex = next.find(i => i.product.id === p.id)
+            if (ex) next = next.map(i => i.product.id === p.id ? { ...i, quantity: i.quantity + qty } : i)
+            else next = [...next, { product: p, quantity: qty, itemNote: '' }]
+          }
+          return next
+        })
+        const msg = found.map(f => `${f.qty > 1 ? f.qty + 'x ' : ''}${f.product.name}`).join(', ')
+        setVoiceMsg(`✓ ${msg}`)
+        setVoiceState('match')
+      } else {
+        setVoiceMsg(`"${transcripts[0]}" — Không tìm thấy`)
+        setVoiceState('nomatch')
+      }
+      setTimeout(() => { setVoiceState('idle'); setVoiceMsg('') }, 3000)
+    }
+
+    rec.onerror = () => {
+      setVoiceMsg('Không nhận được giọng nói')
+      setVoiceState('nomatch')
+      setTimeout(() => { setVoiceState('idle'); setVoiceMsg('') }, 2000)
+    }
+
+    rec.onend = () => {
+      if (!didGetResult) {
+        setVoiceState('nomatch')
+        setVoiceMsg('Không nghe thấy — thử lại')
+        setTimeout(() => { setVoiceState('idle'); setVoiceMsg('') }, 2000)
+      }
+    }
   }
 
   function updateItemNote(id: number, note: string) {
@@ -612,15 +739,38 @@ export default function BanHangPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Search + filter */}
         <div className="px-3 md:px-5 pt-3 pb-2 shrink-0 space-y-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={17} />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Tìm kiếm món..."
-              className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400 text-sm"
-            />
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={17} />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Tìm kiếm món..."
+                className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400 text-sm"
+              />
+            </div>
+            <button
+              onClick={startVoice}
+              disabled={voiceState === 'listening'}
+              title="Thêm bằng giọng nói"
+              className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-all active:scale-95 ${
+                voiceState === 'listening' ? 'bg-red-500 text-white animate-pulse' :
+                voiceState === 'match'    ? 'bg-green-500 text-white' :
+                voiceState === 'nomatch'  ? 'bg-orange-400 text-white' :
+                'bg-white border border-gray-200 text-gray-500 hover:border-orange-400 hover:text-orange-500'
+              }`}>
+              {voiceState === 'listening' ? <MicOff size={18} /> : <Mic size={18} />}
+            </button>
           </div>
+          {voiceMsg && (
+            <div className={`text-xs font-medium px-3 py-1.5 rounded-lg ${
+              voiceState === 'match' ? 'bg-green-50 text-green-700' :
+              voiceState === 'nomatch' ? 'bg-red-50 text-red-600' :
+              'bg-orange-50 text-orange-600'
+            }`}>
+              {voiceMsg}
+            </div>
+          )}
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
             <button
               onClick={() => setActiveCategory('all')}
