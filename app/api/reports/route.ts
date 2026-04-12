@@ -89,23 +89,14 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Daily report ───────────────────────────────────────────
-    // Convert VN midnight to UTC ISO strings for Neon HTTP driver compatibility
-    const dateStartUtc = new Date(`${date}T00:00:00+07:00`).toISOString()
-    const dateEndUtcObj = new Date(`${date}T00:00:00+07:00`)
-    dateEndUtcObj.setDate(dateEndUtcObj.getDate() + 1)
-    const dateEndUtc = dateEndUtcObj.toISOString()
-
-    const dateStart = dateStartUtc
-    const dateEndEx = dateEndUtc
-
+    // Dùng TO_CHAR để so sánh theo ngày VN, tránh vấn đề timezone với Neon HTTP driver
     const [stats, thuChi, recent_orders, hourly, cups, top_products] = await Promise.all([
-      // Doanh thu = đơn is_paid=true (tiền thực nhận)
       sql`
         SELECT COALESCE(SUM(total_amount),0) as total_revenue,
                COUNT(*) as order_count,
                COALESCE(AVG(total_amount),0) as avg_order
         FROM orders
-        WHERE created_at >= ${dateStart}::timestamptz AND created_at < ${dateEndEx}::timestamptz
+        WHERE TO_CHAR(created_at + interval '7 hours', 'YYYY-MM-DD') = ${date}
           AND status != 'cancelled' AND is_paid = true
       `,
       sql`
@@ -116,7 +107,7 @@ export async function GET(req: NextRequest) {
       sql`
         SELECT o.*, TO_CHAR(o.created_at + interval '7 hours', 'YYYY-MM-DD HH24:MI:SS') as vn_created_at, u.username
         FROM orders o LEFT JOIN users u ON o.user_id = u.id
-        WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at < ${dateEndEx}::timestamptz
+        WHERE TO_CHAR(o.created_at + interval '7 hours', 'YYYY-MM-DD') = ${date}
         ORDER BY o.created_at DESC LIMIT 20
       `,
       sql`
@@ -124,24 +115,22 @@ export async function GET(req: NextRequest) {
                COALESCE(SUM(total_amount),0) as revenue,
                COUNT(*) as count
         FROM orders
-        WHERE created_at >= ${dateStart}::timestamptz AND created_at < ${dateEndEx}::timestamptz
+        WHERE TO_CHAR(created_at + interval '7 hours', 'YYYY-MM-DD') = ${date}
           AND status != 'cancelled' AND is_paid = true
         GROUP BY hour ORDER BY hour
       `,
-      // Tổng ly = tất cả đơn đã hoàn thành (kể cả chưa thu tiền)
       sql`
         SELECT COALESCE(SUM(oi.quantity),0)::int as total_cups
         FROM order_items oi JOIN orders o ON o.id = oi.order_id
-        WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at < ${dateEndEx}::timestamptz
+        WHERE TO_CHAR(o.created_at + interval '7 hours', 'YYYY-MM-DD') = ${date}
           AND o.status = 'completed'
       `,
-      // Top sản phẩm = theo đơn hoàn thành
       sql`
         SELECT oi.product_name,
                SUM(oi.quantity)::int as total_qty,
                SUM(oi.subtotal)::numeric as total_revenue
         FROM order_items oi JOIN orders o ON o.id = oi.order_id
-        WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at < ${dateEndEx}::timestamptz
+        WHERE TO_CHAR(o.created_at + interval '7 hours', 'YYYY-MM-DD') = ${date}
           AND o.status = 'completed'
         GROUP BY oi.product_name
         ORDER BY total_qty DESC LIMIT 10
@@ -156,7 +145,7 @@ export async function GET(req: NextRequest) {
       total_cups:       Number(cups[0].total_cups),
       top_products: top_products.map(p => ({ ...p, total_qty: Number(p.total_qty), total_revenue: Number(p.total_revenue) })),
       recent_orders, hourly,
-      _debug: { dateStart, dateEndEx, serverUtc: new Date().toISOString() },
+      _debug: { date, serverUtc: new Date().toISOString(), recentCount: recent_orders.length },
     }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' } })
   } catch (error) {
     console.error(error)
