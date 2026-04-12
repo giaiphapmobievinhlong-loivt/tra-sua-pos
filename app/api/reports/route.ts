@@ -89,13 +89,14 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Daily report ───────────────────────────────────────────
-    // Dùng < nextDay để tránh edge case cuối ngày
-    const nextDateObj = new Date(`${date}T00:00:00+07:00`)
-    nextDateObj.setDate(nextDateObj.getDate() + 1)
-    const nextDate = nextDateObj.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })
+    // Convert VN midnight to UTC ISO strings for Neon HTTP driver compatibility
+    const dateStartUtc = new Date(`${date}T00:00:00+07:00`).toISOString()
+    const dateEndUtcObj = new Date(`${date}T00:00:00+07:00`)
+    dateEndUtcObj.setDate(dateEndUtcObj.getDate() + 1)
+    const dateEndUtc = dateEndUtcObj.toISOString()
 
-    const dateStart = `${date}T00:00:00+07:00`
-    const dateEndEx = `${nextDate}T00:00:00+07:00`  // exclusive upper bound
+    const dateStart = dateStartUtc
+    const dateEndEx = dateEndUtc
 
     const [stats, thuChi, recent_orders, hourly, cups, top_products] = await Promise.all([
       // Doanh thu = đơn is_paid=true (tiền thực nhận)
