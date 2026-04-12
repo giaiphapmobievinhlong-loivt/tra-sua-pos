@@ -1009,7 +1009,7 @@ function SettingsTab() {
 
 // ─── Recipes Tab ──────────────────────────────────────────
 function RecipesTab() {
-  const [activeSection, setActiveSection] = useState<'nen' | 'ly'>('nen')
+  const [activeSection, setActiveSection] = useState<'nen' | 'ly' | 'topping'>('nen')
   const [activeRecipe, setActiveRecipe] = useState(0)
 
   const nenTra = [
@@ -1123,7 +1123,11 @@ function RecipesTab() {
         </button>
         <button onClick={() => setActiveSection('ly')}
           className={`flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all ${activeSection === 'ly' ? 'bg-white shadow text-orange-600' : 'text-gray-500'}`}>
-          🧋 Công Thức Từng Ly
+          🧋 Từng Ly
+        </button>
+        <button onClick={() => setActiveSection('topping')}
+          className={`flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all ${activeSection === 'topping' ? 'bg-white shadow text-orange-600' : 'text-gray-500'}`}>
+          🍮 Topping
         </button>
       </div>
 
@@ -1155,6 +1159,67 @@ function RecipesTab() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {activeSection === 'topping' && (
+        <div className="space-y-4">
+          {/* Pudding trứng */}
+          <div className="border-2 border-yellow-300 rounded-2xl overflow-hidden">
+            <div className="bg-yellow-400 px-4 py-3 flex items-center gap-2">
+              <span className="text-2xl">🍮</span>
+              <div>
+                <h3 className="font-bold text-white text-base">Pudding Trứng</h3>
+                <p className="text-white/80 text-xs">Cho ~1 lít thành phẩm</p>
+              </div>
+            </div>
+            <div className="p-4 space-y-3">
+              {/* Nguyên liệu */}
+              <div className="bg-white rounded-xl p-3 shadow-sm">
+                <p className="font-bold text-gray-700 text-sm mb-2 flex items-center gap-1.5">
+                  <span className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs font-black flex items-center justify-center">1</span>
+                  Nguyên liệu
+                </p>
+                <ul className="space-y-1.5">
+                  {[
+                    '100g bột kem béo',
+                    '100g bột pudding trứng',
+                    '1 ít muối hồng',
+                    '3g rau câu',
+                    '70g đường',
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-center justify-between bg-yellow-50 rounded-lg px-3 py-2">
+                      <span className="text-sm text-gray-700 font-medium">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              {/* Cách làm */}
+              <div className="bg-white rounded-xl p-3 shadow-sm">
+                <p className="font-bold text-gray-700 text-sm mb-2 flex items-center gap-1.5">
+                  <span className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs font-black flex items-center justify-center">2</span>
+                  Cách làm
+                </p>
+                <ul className="space-y-2">
+                  {[
+                    'Trộn đều tất cả nguyên liệu khô vào nhau',
+                    'Cho 1 lít nước lọc vào, khuấy đều',
+                    'Đun sôi trên bếp lửa lớn',
+                    'Hạ lửa nhỏ khoảng 2 phút rồi tắt bếp',
+                  ].map((step, i) => (
+                    <li key={i} className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-orange-100 text-orange-600 text-xs font-black flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                      <p className="text-sm text-gray-600">{step}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-2.5 flex items-start gap-2">
+                <span className="text-orange-500 shrink-0">📝</span>
+                <p className="text-sm text-orange-700 font-medium">Khuấy đều tay khi đun để tránh vón cục. Đổ ra khuôn, để nguội rồi cắt miếng.</p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
