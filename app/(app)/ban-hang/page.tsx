@@ -537,10 +537,14 @@ export default function BanHangPage() {
   function startVoice() {
     const SpeechRecognition = (window as unknown as Record<string, unknown>).SpeechRecognition
       || (window as unknown as Record<string, unknown>).webkitSpeechRecognition
-    if (!SpeechRecognition) {
-      setVoiceMsg('Trình duyệt không hỗ trợ nhận giọng nói')
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+      || (navigator as any).standalone === true
+    if (!SpeechRecognition || isStandalone) {
+      setVoiceMsg(isStandalone
+        ? 'Mở bằng Safari browser để dùng giọng nói (không hỗ trợ trong app)'
+        : 'Trình duyệt không hỗ trợ nhận giọng nói')
       setVoiceState('nomatch')
-      setTimeout(() => setVoiceState('idle'), 2000)
+      setTimeout(() => { setVoiceState('idle'); setVoiceMsg('') }, 4000)
       return
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
