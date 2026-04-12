@@ -639,10 +639,20 @@ export default function BanHangPage() {
       setTimeout(() => { setVoiceState('idle'); setVoiceMsg('') }, 3000)
     }
 
-    rec.onerror = () => {
-      setVoiceMsg('Không nhận được giọng nói')
+    rec.onerror = (e: any) => {
+      const code = e?.error || ''
+      let msg = 'Không nhận được giọng nói'
+      if (code === 'not-allowed' || code === 'permission-denied')
+        msg = 'Chưa cấp quyền micro — vào cài đặt trình duyệt để bật'
+      else if (code === 'no-speech')
+        msg = 'Không nghe thấy — thử nói to hơn'
+      else if (code === 'network')
+        msg = 'Lỗi mạng — cần kết nối internet để nhận giọng nói'
+      else if (code === 'audio-capture')
+        msg = 'Không tìm thấy micro'
+      setVoiceMsg(msg)
       setVoiceState('nomatch')
-      setTimeout(() => { setVoiceState('idle'); setVoiceMsg('') }, 2000)
+      setTimeout(() => { setVoiceState('idle'); setVoiceMsg('') }, 3000)
     }
 
     rec.onend = () => {
