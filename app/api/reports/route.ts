@@ -89,16 +89,21 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Daily report ───────────────────────────────────────────
-    // Dùng date arithmetic: VN midnight = UTC midnight - 7h
-    // Tránh dùng timezone string trong parameterized query (Neon HTTP driver issue)
+    // Tính UTC boundaries từ VN date trong JS để tránh Neon HTTP driver issue với ::date cast
+    const [dy, dm, dd] = date.split('-').map(Number)
+    const dateMs   = Date.UTC(dy, dm - 1, dd)
+    const utcStart = new Date(dateMs - 7 * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ')
+    const utcEnd   = new Date(dateMs + 17 * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ')
+    // utcStart = 'YYYY-MM-DD 17:00:00' (ngày hôm trước), utcEnd = 'YYYY-MM-DD 17:00:00' (ngày hôm đó)
+
     const [stats, thuChi, recent_orders, hourly, cups, top_products] = await Promise.all([
       sql`
         SELECT COALESCE(SUM(total_amount),0) as total_revenue,
                COUNT(*) as order_count,
                COALESCE(AVG(total_amount),0) as avg_order
         FROM orders
-        WHERE created_at >= ${date}::date - interval '7 hours'
-          AND created_at <  ${date}::date + interval '1 day' - interval '7 hours'
+        WHERE created_at >= ${utcStart}::timestamp
+          AND created_at <  ${utcEnd}::timestamp
           AND status != 'cancelled' AND is_paid = true
       `,
       sql`
@@ -109,8 +114,8 @@ export async function GET(req: NextRequest) {
       sql`
         SELECT o.*, TO_CHAR(o.created_at + interval '7 hours', 'YYYY-MM-DD HH24:MI:SS') as vn_created_at, u.username
         FROM orders o LEFT JOIN users u ON o.user_id = u.id
-        WHERE o.created_at >= ${date}::date - interval '7 hours'
-          AND o.created_at <  ${date}::date + interval '1 day' - interval '7 hours'
+        WHERE o.created_at >= ${utcStart}::timestamp
+          AND o.created_at <  ${utcEnd}::timestamp
         ORDER BY o.created_at DESC LIMIT 20
       `,
       sql`
@@ -118,16 +123,16 @@ export async function GET(req: NextRequest) {
                COALESCE(SUM(total_amount),0) as revenue,
                COUNT(*) as count
         FROM orders
-        WHERE created_at >= ${date}::date - interval '7 hours'
-          AND created_at <  ${date}::date + interval '1 day' - interval '7 hours'
+        WHERE created_at >= ${utcStart}::timestamp
+          AND created_at <  ${utcEnd}::timestamp
           AND status != 'cancelled' AND is_paid = true
         GROUP BY hour ORDER BY hour
       `,
       sql`
         SELECT COALESCE(SUM(oi.quantity),0)::int as total_cups
         FROM order_items oi JOIN orders o ON o.id = oi.order_id
-        WHERE o.created_at >= ${date}::date - interval '7 hours'
-          AND o.created_at <  ${date}::date + interval '1 day' - interval '7 hours'
+        WHERE o.created_at >= ${utcStart}::timestamp
+          AND o.created_at <  ${utcEnd}::timestamp
           AND o.status = 'completed'
       `,
       sql`
@@ -135,8 +140,8 @@ export async function GET(req: NextRequest) {
                SUM(oi.quantity)::int as total_qty,
                SUM(oi.subtotal)::numeric as total_revenue
         FROM order_items oi JOIN orders o ON o.id = oi.order_id
-        WHERE o.created_at >= ${date}::date - interval '7 hours'
-          AND o.created_at <  ${date}::date + interval '1 day' - interval '7 hours'
+        WHERE o.created_at >= ${utcStart}::timestamp
+          AND o.created_at <  ${utcEnd}::timestamp
           AND o.status = 'completed'
         GROUP BY oi.product_name
         ORDER BY total_qty DESC LIMIT 10
