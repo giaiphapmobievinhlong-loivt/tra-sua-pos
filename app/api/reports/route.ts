@@ -156,7 +156,7 @@ export async function GET(req: NextRequest) {
       total_cups:       Number(cups[0].total_cups),
       top_products: top_products.map(p => ({ ...p, total_qty: Number(p.total_qty), total_revenue: Number(p.total_revenue) })),
       recent_orders, hourly,
-      _debug: { date, serverUtc: new Date().toISOString(), recentCount: recent_orders.length },
+      _debug: { date, utcStart, utcEnd, serverUtc: new Date().toISOString(), recentCount: recent_orders.length },
     }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' } })
   } catch (error) {
     console.error(error)
