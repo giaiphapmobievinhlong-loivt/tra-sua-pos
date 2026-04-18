@@ -89,12 +89,11 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Daily report ───────────────────────────────────────────
-    // Tính UTC boundaries từ VN date trong JS để tránh Neon HTTP driver issue với ::date cast
+    // Dùng VN midnight với +07:00 và ::timestamptz — cùng pattern với monthly report (đã hoạt động)
     const [dy, dm, dd] = date.split('-').map(Number)
-    const dateMs   = Date.UTC(dy, dm - 1, dd)
-    const utcStart = new Date(dateMs - 7 * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ')
-    const utcEnd   = new Date(dateMs + 17 * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ')
-    // utcStart = 'YYYY-MM-DD 17:00:00' (ngày hôm trước), utcEnd = 'YYYY-MM-DD 17:00:00' (ngày hôm đó)
+    const nextDay    = new Date(Date.UTC(dy, dm - 1, dd + 1)).toISOString().slice(0, 10)
+    const dayStart   = `${date}T00:00:00+07:00`
+    const dayEnd     = `${nextDay}T00:00:00+07:00`
 
     const [stats, thuChi, recent_orders, hourly, cups, top_products] = await Promise.all([
       sql`
@@ -102,8 +101,8 @@ export async function GET(req: NextRequest) {
                COUNT(*) as order_count,
                COALESCE(AVG(total_amount),0) as avg_order
         FROM orders
-        WHERE created_at >= ${utcStart}::timestamp
-          AND created_at <  ${utcEnd}::timestamp
+        WHERE created_at >= ${dayStart}::timestamptz
+          AND created_at <  ${dayEnd}::timestamptz
           AND status != 'cancelled' AND is_paid = true
       `,
       sql`
@@ -114,8 +113,8 @@ export async function GET(req: NextRequest) {
       sql`
         SELECT o.*, TO_CHAR(o.created_at + interval '7 hours', 'YYYY-MM-DD HH24:MI:SS') as vn_created_at, u.username
         FROM orders o LEFT JOIN users u ON o.user_id = u.id
-        WHERE o.created_at >= ${utcStart}::timestamp
-          AND o.created_at <  ${utcEnd}::timestamp
+        WHERE o.created_at >= ${dayStart}::timestamptz
+          AND o.created_at <  ${dayEnd}::timestamptz
         ORDER BY o.created_at DESC LIMIT 20
       `,
       sql`
@@ -123,16 +122,16 @@ export async function GET(req: NextRequest) {
                COALESCE(SUM(total_amount),0) as revenue,
                COUNT(*) as count
         FROM orders
-        WHERE created_at >= ${utcStart}::timestamp
-          AND created_at <  ${utcEnd}::timestamp
+        WHERE created_at >= ${dayStart}::timestamptz
+          AND created_at <  ${dayEnd}::timestamptz
           AND status != 'cancelled' AND is_paid = true
         GROUP BY hour ORDER BY hour
       `,
       sql`
         SELECT COALESCE(SUM(oi.quantity),0)::int as total_cups
         FROM order_items oi JOIN orders o ON o.id = oi.order_id
-        WHERE o.created_at >= ${utcStart}::timestamp
-          AND o.created_at <  ${utcEnd}::timestamp
+        WHERE o.created_at >= ${dayStart}::timestamptz
+          AND o.created_at <  ${dayEnd}::timestamptz
           AND o.status = 'completed'
       `,
       sql`
@@ -140,8 +139,8 @@ export async function GET(req: NextRequest) {
                SUM(oi.quantity)::int as total_qty,
                SUM(oi.subtotal)::numeric as total_revenue
         FROM order_items oi JOIN orders o ON o.id = oi.order_id
-        WHERE o.created_at >= ${utcStart}::timestamp
-          AND o.created_at <  ${utcEnd}::timestamp
+        WHERE o.created_at >= ${dayStart}::timestamptz
+          AND o.created_at <  ${dayEnd}::timestamptz
           AND o.status = 'completed'
         GROUP BY oi.product_name
         ORDER BY total_qty DESC LIMIT 10
@@ -156,7 +155,7 @@ export async function GET(req: NextRequest) {
       total_cups:       Number(cups[0].total_cups),
       top_products: top_products.map(p => ({ ...p, total_qty: Number(p.total_qty), total_revenue: Number(p.total_revenue) })),
       recent_orders, hourly,
-      _debug: { date, utcStart, utcEnd, serverUtc: new Date().toISOString(), recentCount: recent_orders.length },
+      _debug: { date, dayStart, dayEnd, serverUtc: new Date().toISOString(), recentCount: recent_orders.length },
     }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' } })
   } catch (error) {
     console.error(error)
