@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Pencil, Trash2, Package, Layers, Users, X, Eye, EyeOff, Tag, Percent, DollarSign, ToggleLeft, ToggleRight, QrCode, Printer, ExternalLink, ChefHat } from 'lucide-react'
+import { Plus, Pencil, Trash2, Package, Layers, Users, X, Eye, EyeOff, Tag, Percent, DollarSign, ToggleLeft, ToggleRight, QrCode, Printer, ExternalLink, ChefHat, Boxes, ArrowDownToLine, ArrowUpFromLine, History, AlertTriangle } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────
 interface Category {
@@ -29,7 +29,7 @@ interface User {
   created_at: string
 }
 
-type Tab = 'products' | 'categories' | 'users' | 'discounts' | 'qr' | 'settings' | 'recipes'
+type Tab = 'products' | 'categories' | 'users' | 'discounts' | 'qr' | 'settings' | 'recipes' | 'inventory'
 
 // ─── Modal wrapper ────────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -1278,6 +1278,319 @@ function RecipesTab() {
   )
 }
 
+// ─── Inventory Tab ────────────────────────────────────────
+interface Material {
+  id: number
+  name: string
+  unit: string
+  quantity: number
+  min_quantity: number
+}
+
+interface MaterialLog {
+  id: number
+  type: 'in' | 'out' | 'adjust'
+  quantity: number
+  note: string | null
+  created_at_vn: string
+  user_name: string | null
+}
+
+function stockStatus(m: Material): { label: string; color: string; bg: string } {
+  if (m.quantity <= 0) return { label: 'Hết hàng', color: 'text-red-600', bg: 'bg-red-50 border-red-200' }
+  if (m.min_quantity > 0 && m.quantity <= m.min_quantity) return { label: 'Sắp hết', color: 'text-amber-600', bg: 'bg-amber-50 border-amber-200' }
+  return { label: 'Đủ hàng', color: 'text-green-600', bg: 'bg-green-50 border-green-200' }
+}
+
+function InventoryTab() {
+  const [materials, setMaterials] = useState<Material[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showAdd, setShowAdd] = useState(false)
+  const [editing, setEditing] = useState<Material | null>(null)
+  const [selected, setSelected] = useState<Material | null>(null)
+  const [logs, setLogs] = useState<MaterialLog[]>([])
+  const [logsLoading, setLogsLoading] = useState(false)
+  const [deleting, setDeleting] = useState<Material | null>(null)
+  const [form, setForm] = useState({ name: '', unit: 'kg', min_quantity: '0' })
+  const [logForm, setLogForm] = useState({ type: 'in' as 'in' | 'out' | 'adjust', quantity: '', note: '' })
+  const [saving, setSaving] = useState(false)
+  const [logSaving, setLogSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const fetchMaterials = useCallback(async () => {
+    const res = await fetch('/api/materials')
+    const d = await res.json()
+    setMaterials(d.materials || [])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { fetchMaterials() }, [fetchMaterials])
+
+  async function fetchLogs(id: number) {
+    setLogsLoading(true)
+    const res = await fetch(`/api/materials/${id}/log`)
+    const d = await res.json()
+    setLogs(d.logs || [])
+    setLogsLoading(false)
+  }
+
+  function openAdd() {
+    setEditing(null)
+    setForm({ name: '', unit: 'kg', min_quantity: '0' })
+    setError('')
+    setShowAdd(true)
+  }
+
+  function openEdit(m: Material) {
+    setEditing(m)
+    setForm({ name: m.name, unit: m.unit, min_quantity: String(m.min_quantity) })
+    setError('')
+    setShowAdd(true)
+  }
+
+  function openDetail(m: Material) {
+    setSelected(m)
+    setLogForm({ type: 'in', quantity: '', note: '' })
+    fetchLogs(m.id)
+  }
+
+  async function handleSave() {
+    if (!form.name.trim() || !form.unit.trim()) { setError('Vui lòng điền đầy đủ'); return }
+    setSaving(true); setError('')
+    try {
+      const url = editing ? `/api/materials/${editing.id}` : '/api/materials'
+      const method = editing ? 'PUT' : 'POST'
+      const body = editing
+        ? { name: form.name, unit: form.unit, min_quantity: Number(form.min_quantity) }
+        : { name: form.name, unit: form.unit, quantity: 0, min_quantity: Number(form.min_quantity) }
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const d = await res.json()
+      if (!res.ok) { setError(d.error || 'Lỗi'); return }
+      setShowAdd(false)
+      fetchMaterials()
+    } finally { setSaving(false) }
+  }
+
+  async function handleDelete(m: Material) {
+    await fetch(`/api/materials/${m.id}`, { method: 'DELETE' })
+    setDeleting(null)
+    fetchMaterials()
+  }
+
+  async function handleLog() {
+    if (!logForm.quantity || Number(logForm.quantity) <= 0) return
+    setLogSaving(true)
+    const res = await fetch(`/api/materials/${selected!.id}/log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: logForm.type, quantity: Number(logForm.quantity), note: logForm.note }),
+    })
+    const d = await res.json()
+    if (res.ok) {
+      setSelected(prev => prev ? { ...prev, quantity: d.quantity } : null)
+      setMaterials(prev => prev.map(m => m.id === selected!.id ? { ...m, quantity: d.quantity } : m))
+      setLogForm({ type: 'in', quantity: '', note: '' })
+      fetchLogs(selected!.id)
+    }
+    setLogSaving(false)
+  }
+
+  const lowCount = materials.filter(m => m.quantity <= m.min_quantity && m.min_quantity > 0 || m.quantity <= 0).length
+
+  if (loading) return <p className="text-sm text-gray-400">Đang tải...</p>
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500">{materials.length} nguyên liệu</span>
+          {lowCount > 0 && (
+            <span className="flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
+              <AlertTriangle size={12} /> {lowCount} cần nhập thêm
+            </span>
+          )}
+        </div>
+        <button onClick={openAdd} className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold px-4 py-2 rounded-xl transition-colors">
+          <Plus size={16} /> Thêm nguyên liệu
+        </button>
+      </div>
+
+      {/* List */}
+      {materials.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <Boxes size={40} className="mx-auto mb-3 opacity-30" />
+          <p className="font-medium">Chưa có nguyên liệu nào</p>
+          <p className="text-xs mt-1">Nhấn "Thêm nguyên liệu" để bắt đầu</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {materials.map(m => {
+            const st = stockStatus(m)
+            return (
+              <div key={m.id} onClick={() => openDetail(m)}
+                className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm hover:shadow-md cursor-pointer transition-all group">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-gray-800 truncate">{m.name}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Tối thiểu: {m.min_quantity} {m.unit}</p>
+                  </div>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => openEdit(m)} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors">
+                      <Pencil size={14} />
+                    </button>
+                    <button onClick={() => setDeleting(m)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-2xl font-black text-gray-800">{m.quantity.toLocaleString('vi-VN')}</p>
+                    <p className="text-xs text-gray-500 font-medium">{m.unit}</p>
+                  </div>
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${st.color} ${st.bg}`}>{st.label}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Add/Edit modal */}
+      {showAdd && (
+        <Modal title={editing ? 'Sửa nguyên liệu' : 'Thêm nguyên liệu'} onClose={() => setShowAdd(false)}>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-bold text-gray-700 block mb-1.5">Tên nguyên liệu</label>
+              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                className="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300"
+                placeholder="VD: Trà Tắc, Đường, Sữa đặc..." autoFocus />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-bold text-gray-700 block mb-1.5">Đơn vị</label>
+                <select value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
+                  className="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white">
+                  {['kg', 'g', 'lít', 'ml', 'gói', 'hộp', 'lon', 'chai', 'cái', 'thùng'].map(u => (
+                    <option key={u} value={u}>{u}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-bold text-gray-700 block mb-1.5">Mức báo hết</label>
+                <input type="number" value={form.min_quantity} onChange={e => setForm(f => ({ ...f, min_quantity: e.target.value }))}
+                  className="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  placeholder="0" min="0" />
+              </div>
+            </div>
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            <div className="flex gap-3 pt-1">
+              <button onClick={() => setShowAdd(false)} className="flex-1 btn-secondary">Hủy</button>
+              <button onClick={handleSave} disabled={saving}
+                className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-bold py-2.5 rounded-xl transition-colors">
+                {saving ? 'Đang lưu...' : editing ? 'Lưu thay đổi' : 'Thêm'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Detail modal */}
+      {selected && (
+        <div className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-0 md:p-4">
+          <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-lg shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div>
+                <h3 className="text-lg font-bold text-gray-800">{selected.name}</h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Hiện có: <strong className="text-gray-700">{selected.quantity.toLocaleString('vi-VN')} {selected.unit}</strong>
+                  {' · '}Mức báo hết: {selected.min_quantity} {selected.unit}
+                </p>
+              </div>
+              <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            </div>
+            <div className="p-5 space-y-5">
+              {/* Transaction form */}
+              <div className="bg-gray-50 rounded-2xl p-4 space-y-3">
+                <p className="text-sm font-bold text-gray-700">Cập nhật tồn kho</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['in', 'out', 'adjust'] as const).map(t => (
+                    <button key={t} onClick={() => setLogForm(f => ({ ...f, type: t }))}
+                      className={`py-2 rounded-xl text-xs font-bold transition-colors border ${
+                        logForm.type === t
+                          ? t === 'in' ? 'bg-green-500 text-white border-green-500'
+                            : t === 'out' ? 'bg-red-500 text-white border-red-500'
+                            : 'bg-blue-500 text-white border-blue-500'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                      }`}>
+                      {t === 'in' ? '+ Nhập kho' : t === 'out' ? '− Xuất kho' : '✎ Điều chỉnh'}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input type="number" value={logForm.quantity} onChange={e => setLogForm(f => ({ ...f, quantity: e.target.value }))}
+                    className="flex-1 text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300"
+                    placeholder={`Số lượng (${selected.unit})`} min="0" />
+                  <input value={logForm.note} onChange={e => setLogForm(f => ({ ...f, note: e.target.value }))}
+                    className="flex-1 text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300"
+                    placeholder="Ghi chú (tuỳ chọn)" />
+                </div>
+                <button onClick={handleLog} disabled={logSaving || !logForm.quantity || Number(logForm.quantity) <= 0}
+                  className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-bold py-2.5 rounded-xl transition-colors text-sm">
+                  {logSaving ? 'Đang lưu...' : 'Xác nhận'}
+                </button>
+              </div>
+
+              {/* Log history */}
+              <div>
+                <p className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                  <History size={15} /> Lịch sử
+                </p>
+                {logsLoading ? (
+                  <p className="text-xs text-gray-400 text-center py-4">Đang tải...</p>
+                ) : logs.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-4">Chưa có giao dịch nào</p>
+                ) : (
+                  <div className="space-y-2">
+                    {logs.map(log => (
+                      <div key={log.id} className="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          {log.type === 'in'
+                            ? <ArrowDownToLine size={16} className="text-green-500 shrink-0" />
+                            : log.type === 'out'
+                            ? <ArrowUpFromLine size={16} className="text-red-500 shrink-0" />
+                            : <Pencil size={16} className="text-blue-500 shrink-0" />
+                          }
+                          <div>
+                            <p className="text-sm font-semibold text-gray-700">
+                              {log.type === 'in' ? 'Nhập kho' : log.type === 'out' ? 'Xuất kho' : 'Điều chỉnh'}
+                              {log.note && <span className="text-gray-400 font-normal"> · {log.note}</span>}
+                            </p>
+                            <p className="text-xs text-gray-400">{log.created_at_vn}{log.user_name ? ` · ${log.user_name}` : ''}</p>
+                          </div>
+                        </div>
+                        <span className={`text-sm font-black ${log.type === 'in' ? 'text-green-600' : log.type === 'out' ? 'text-red-600' : 'text-blue-600'}`}>
+                          {log.type === 'in' ? '+' : log.type === 'out' ? '−' : '='}{log.quantity} {selected.unit}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm delete */}
+      {deleting && (
+        <ConfirmDelete name={deleting.name} onConfirm={() => handleDelete(deleting)} onCancel={() => setDeleting(null)} />
+      )}
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'products', label: 'Sản Phẩm', icon: Package },
@@ -1287,6 +1600,7 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'qr', label: 'QR Bàn', icon: QrCode },
   { id: 'settings', label: 'Cài Đặt', icon: ToggleRight },
   { id: 'recipes', label: 'Công Thức', icon: ChefHat },
+  { id: 'inventory', label: 'Tồn Kho', icon: Boxes },
 ]
 
 export default function QuanLyPage() {
@@ -1333,6 +1647,7 @@ export default function QuanLyPage() {
       {tab === 'qr' && <QrTab />}
       {tab === 'settings' && <SettingsTab />}
       {tab === 'recipes' && <RecipesTab />}
+      {tab === 'inventory' && <InventoryTab />}
     </div>
   )
 }
