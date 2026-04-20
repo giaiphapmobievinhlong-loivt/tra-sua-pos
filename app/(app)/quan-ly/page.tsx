@@ -1279,6 +1279,13 @@ function RecipesTab() {
 }
 
 // ─── Inventory Tab ────────────────────────────────────────
+interface ProductIngredient {
+  material_id: number
+  quantity_per_cup: number
+  material_name: string
+  unit: string
+}
+
 interface Material {
   id: number
   name: string
@@ -1303,6 +1310,7 @@ function stockStatus(m: Material): { label: string; color: string; bg: string } 
 }
 
 function InventoryTab() {
+  const [subTab, setSubTab] = useState<'stock' | 'recipes'>('stock')
   const [materials, setMaterials] = useState<Material[]>([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
@@ -1317,6 +1325,14 @@ function InventoryTab() {
   const [logSaving, setLogSaving] = useState(false)
   const [error, setError] = useState('')
 
+  // Recipe config state
+  const [allProducts, setAllProducts] = useState<Product[]>([])
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [productIngredients, setProductIngredients] = useState<ProductIngredient[]>([])
+  const [ingForm, setIngForm] = useState({ material_id: '', quantity_per_cup: '' })
+  const [ingLoading, setIngLoading] = useState(false)
+  const [ingSaving, setIngSaving] = useState(false)
+
   const fetchMaterials = useCallback(async () => {
     const res = await fetch('/api/materials')
     const d = await res.json()
@@ -1324,7 +1340,50 @@ function InventoryTab() {
     setLoading(false)
   }, [])
 
+  const fetchProducts = useCallback(async () => {
+    const res = await fetch('/api/admin/products')
+    const d = await res.json()
+    setAllProducts(d.products || [])
+  }, [])
+
   useEffect(() => { fetchMaterials() }, [fetchMaterials])
+  useEffect(() => { if (subTab === 'recipes') fetchProducts() }, [subTab, fetchProducts])
+
+  async function openProductRecipe(p: Product) {
+    setSelectedProduct(p)
+    setIngForm({ material_id: '', quantity_per_cup: '' })
+    setIngLoading(true)
+    const res = await fetch(`/api/products/${p.id}/ingredients`)
+    const d = await res.json()
+    setProductIngredients(d.ingredients || [])
+    setIngLoading(false)
+  }
+
+  async function handleAddIngredient() {
+    if (!ingForm.material_id || !ingForm.quantity_per_cup || Number(ingForm.quantity_per_cup) <= 0) return
+    setIngSaving(true)
+    const res = await fetch(`/api/products/${selectedProduct!.id}/ingredients`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ material_id: Number(ingForm.material_id), quantity_per_cup: Number(ingForm.quantity_per_cup) }),
+    })
+    if (res.ok) {
+      setIngForm({ material_id: '', quantity_per_cup: '' })
+      const r2 = await fetch(`/api/products/${selectedProduct!.id}/ingredients`)
+      const d2 = await r2.json()
+      setProductIngredients(d2.ingredients || [])
+    }
+    setIngSaving(false)
+  }
+
+  async function handleRemoveIngredient(materialId: number) {
+    await fetch(`/api/products/${selectedProduct!.id}/ingredients`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ material_id: materialId }),
+    })
+    setProductIngredients(prev => prev.filter(i => i.material_id !== materialId))
+  }
 
   async function fetchLogs(id: number) {
     setLogsLoading(true)
@@ -1401,6 +1460,86 @@ function InventoryTab() {
 
   return (
     <div className="space-y-4">
+      {/* Sub-tabs */}
+      <div className="flex gap-1 border-b border-gray-200">
+        {([['stock', 'Tồn Kho'], ['recipes', 'Công thức SP']] as const).map(([id, label]) => (
+          <button key={id} onClick={() => setSubTab(id)}
+            className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-all ${
+              subTab === id ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Recipes sub-tab ── */}
+      {subTab === 'recipes' && (
+        <div className="space-y-4">
+          <p className="text-xs text-gray-400">Cấu hình nguyên liệu tiêu thụ cho từng sản phẩm. Hệ thống sẽ tự động trừ kho khi đơn hoàn thành.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {allProducts.map(p => (
+              <button key={p.id} onClick={() => openProductRecipe(p)}
+                className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm hover:shadow-md text-left transition-all">
+                <p className="font-bold text-gray-800 text-sm">{p.name}</p>
+                <p className="text-xs text-orange-500 mt-1">{p.price.toLocaleString('vi-VN')}đ</p>
+              </button>
+            ))}
+          </div>
+
+          {selectedProduct && (
+            <Modal title={`Nguyên liệu: ${selectedProduct.name}`} onClose={() => setSelectedProduct(null)}>
+              <div className="space-y-4">
+                {ingLoading ? (
+                  <p className="text-sm text-gray-400 text-center py-4">Đang tải...</p>
+                ) : (
+                  <>
+                    {productIngredients.length === 0 ? (
+                      <p className="text-xs text-gray-400 text-center py-3">Chưa cấu hình nguyên liệu</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {productIngredients.map(ing => (
+                          <div key={ing.material_id} className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-700">{ing.material_name}</p>
+                              <p className="text-xs text-orange-600 font-bold">{ing.quantity_per_cup} {ing.unit} / ly</p>
+                            </div>
+                            <button onClick={() => handleRemoveIngredient(ing.material_id)}
+                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="border-t border-gray-100 pt-4 space-y-3">
+                      <p className="text-sm font-bold text-gray-700">Thêm nguyên liệu</p>
+                      <select value={ingForm.material_id} onChange={e => setIngForm(f => ({ ...f, material_id: e.target.value }))}
+                        className="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white">
+                        <option value="">-- Chọn nguyên liệu --</option>
+                        {materials.filter(m => !productIngredients.find(i => i.material_id === m.id)).map(m => (
+                          <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
+                        ))}
+                      </select>
+                      <div className="flex gap-2">
+                        <input type="number" value={ingForm.quantity_per_cup} onChange={e => setIngForm(f => ({ ...f, quantity_per_cup: e.target.value }))}
+                          className="flex-1 text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300"
+                          placeholder="Số lượng / ly" min="0" step="0.001" />
+                        <button onClick={handleAddIngredient} disabled={ingSaving || !ingForm.material_id || !ingForm.quantity_per_cup}
+                          className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-bold px-4 py-2.5 rounded-xl transition-colors text-sm whitespace-nowrap">
+                          {ingSaving ? '...' : 'Thêm'}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </Modal>
+          )}
+        </div>
+      )}
+
+      {/* ── Stock sub-tab ── */}
+      {subTab === 'stock' && <>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -1587,6 +1726,7 @@ function InventoryTab() {
       {deleting && (
         <ConfirmDelete name={deleting.name} onConfirm={() => handleDelete(deleting)} onCancel={() => setDeleting(null)} />
       )}
+      </>}
     </div>
   )
 }
