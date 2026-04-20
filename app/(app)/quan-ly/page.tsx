@@ -1353,10 +1353,15 @@ function InventoryTab() {
     setSelectedProduct(p)
     setIngForm({ material_id: '', quantity_per_cup: '' })
     setIngLoading(true)
-    const res = await fetch(`/api/products/${p.id}/ingredients`)
-    const d = await res.json()
-    setProductIngredients(d.ingredients || [])
-    setIngLoading(false)
+    try {
+      const res = await fetch(`/api/products/${p.id}/ingredients`)
+      const d = await res.json()
+      setProductIngredients(d.ingredients || [])
+    } catch {
+      setProductIngredients([])
+    } finally {
+      setIngLoading(false)
+    }
   }
 
   async function handleAddIngredient() {
