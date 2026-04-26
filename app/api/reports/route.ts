@@ -134,7 +134,7 @@ export async function GET(req: NextRequest) {
           SELECT id FROM orders
           WHERE created_at >= ${dayStart}::timestamptz
             AND created_at <  ${dayEnd}::timestamptz
-            AND status = 'completed'
+            AND status != 'cancelled' AND is_paid = true
         )
       `,
       sql`
@@ -146,7 +146,7 @@ export async function GET(req: NextRequest) {
           SELECT id FROM orders
           WHERE created_at >= ${dayStart}::timestamptz
             AND created_at <  ${dayEnd}::timestamptz
-            AND status = 'completed'
+            AND status != 'cancelled' AND is_paid = true
         )
         GROUP BY oi.product_name
         ORDER BY total_qty DESC LIMIT 10
