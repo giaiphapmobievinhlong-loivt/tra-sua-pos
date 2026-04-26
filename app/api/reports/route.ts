@@ -58,9 +58,11 @@ export async function GET(req: NextRequest) {
                  SUM(oi.quantity)::int as total_qty,
                  SUM(oi.subtotal) as total_revenue
           FROM order_items oi
-          JOIN orders o ON o.id = oi.order_id
-          WHERE o.created_at >= ${monthStart}::timestamptz AND o.created_at < ${nextMonth}::timestamptz
-            AND o.status != 'cancelled' AND o.is_paid = true
+          WHERE oi.order_id IN (
+            SELECT id FROM orders
+            WHERE created_at >= ${monthStart}::timestamptz AND created_at < ${nextMonth}::timestamptz
+              AND status != 'cancelled' AND is_paid = true
+          )
           GROUP BY oi.product_name
           ORDER BY total_qty DESC LIMIT 20
         `,
