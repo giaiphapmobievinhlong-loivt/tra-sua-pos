@@ -130,26 +130,22 @@ export async function GET(req: NextRequest) {
         GROUP BY hour ORDER BY hour
       `,
       sql`
-        SELECT COALESCE(SUM(quantity),0)::int as total_cups
-        FROM order_items
-        WHERE order_id IN (
-          SELECT id FROM orders
-          WHERE created_at >= ${dayStart}::timestamptz
-            AND created_at <  ${dayEnd}::timestamptz
-            AND status != 'cancelled' AND is_paid = true
-        )
+        SELECT COALESCE(SUM(oi.quantity),0)::int as total_cups
+        FROM order_items oi
+        JOIN orders o ON o.id = oi.order_id
+        WHERE oi.created_at >= ${dayStart}::timestamptz
+          AND oi.created_at <  ${dayEnd}::timestamptz
+          AND o.status != 'cancelled' AND o.is_paid = true
       `,
       sql`
         SELECT oi.product_name,
                SUM(oi.quantity)::int as total_qty,
                SUM(oi.subtotal)::numeric as total_revenue
         FROM order_items oi
-        WHERE oi.order_id IN (
-          SELECT id FROM orders
-          WHERE created_at >= ${dayStart}::timestamptz
-            AND created_at <  ${dayEnd}::timestamptz
-            AND status != 'cancelled' AND is_paid = true
-        )
+        JOIN orders o ON o.id = oi.order_id
+        WHERE oi.created_at >= ${dayStart}::timestamptz
+          AND oi.created_at <  ${dayEnd}::timestamptz
+          AND o.status != 'cancelled' AND o.is_paid = true
         GROUP BY oi.product_name
         ORDER BY total_qty DESC LIMIT 10
       `,
