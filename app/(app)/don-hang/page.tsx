@@ -220,6 +220,7 @@ export default function DonHangPage() {
   const intervalRef  = useRef<ReturnType<typeof setInterval> | null>(null)
   const isFirstLoad  = useRef(true)
   const seenIds            = useRef<Set<number>>(new Set())
+  const dismissedIds       = useRef<Set<number>>(new Set())
   const seenConfirmIds     = useRef<Set<number>>(new Set())
   const [newWebOrders, setNewWebOrders]           = useState(0)
   const [awaitingConfirmOrders, setAwaitingConfirmOrders] = useState<Order[]>([])
@@ -241,9 +242,16 @@ export default function DonHangPage() {
       const newWeb = fetched.filter(o => o.source === 'web' && o.status === 'pending' && !seenIds.current.has(o.id))
       if (newWeb.length > 0) {
         newWeb.forEach(o => seenIds.current.add(o.id))
-        setNewWebOrders(prev => prev + newWeb.length)
         try { audioRef.current?.play() } catch { /**/ }
       }
+      // Recompute: only count web orders still active (not completed/cancelled/dismissed)
+      const activeWebCount = fetched.filter(o =>
+        seenIds.current.has(o.id) &&
+        !dismissedIds.current.has(o.id) &&
+        o.status !== 'completed' &&
+        o.status !== 'cancelled'
+      ).length
+      setNewWebOrders(activeWebCount)
       // Detect awaiting_confirm orders (khách đã bấm "Đã chuyển khoản")
       const waiting = fetched.filter(o => o.status === 'awaiting_confirm')
       setAwaitingConfirmOrders(waiting)
@@ -377,7 +385,7 @@ export default function DonHangPage() {
             <span className="flex items-center gap-2 font-bold">
               <Globe size={15}/> {newWebOrders} đơn mới từ website!
             </span>
-            <button onClick={() => setNewWebOrders(0)} className="text-blue-400 hover:text-blue-600 font-bold ml-2">✕</button>
+            <button onClick={() => { seenIds.current.forEach(id => dismissedIds.current.add(id)); setNewWebOrders(0) }} className="text-blue-400 hover:text-blue-600 font-bold ml-2">✕</button>
           </div>
         )}
         {awaitingConfirmOrders.filter(o => activeTab === 'delivery' ? o.order_type === 'delivery' : o.order_type !== 'delivery').length > 0 && (

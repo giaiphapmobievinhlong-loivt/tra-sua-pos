@@ -1,6 +1,6 @@
 'use client'
 import { MOMO_QR } from '@/lib/constants'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { apiFetch } from '@/lib/apiFetch'
 import {
   Search, Minus, Plus, Trash2, ShoppingCart,
@@ -462,6 +462,7 @@ export default function BanHangPage() {
   const [payMethod, setPayMethod] = useState<PayMethod>('cash')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState('')
+  const submittingRef = useRef(false)
   const [cartOpen, setCartOpen] = useState(false)
   const [discounts, setDiscounts] = useState<Discount[]>([])
   const [selectedDiscount, setSelectedDiscount] = useState<Discount | null>(null)
@@ -491,11 +492,11 @@ export default function BanHangPage() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [fetchProducts, fetchDiscounts])
 
-  const filtered = products.filter(p => {
+  const filtered = useMemo(() => products.filter(p => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase())
     const matchCat = activeCategory === 'all' || p.category_name === activeCategory
     return matchSearch && matchCat
-  })
+  }), [products, search, activeCategory])
 
   const total = cart.reduce((s, i) => s + Number(i.product.price) * i.quantity, 0)
   const discountAmount = selectedDiscount
@@ -678,28 +679,39 @@ export default function BanHangPage() {
   }
 
   async function handleSubmit() {
-    if (cart.length === 0) return
+    if (cart.length === 0 || submittingRef.current) return
+    submittingRef.current = true
+
+    // Snapshot state for API call
+    const snap = {
+      cart, finalTotal, discountAmount, tableNumber, note,
+      payNow, payMethod, customerPaid, selectedDiscount, manualDiscount, manualType,
+    }
+
+    // Optimistic: clear UI immediately so cashier can start next order
+    clearCart()
+    setCartOpen(false)
     setLoading(true)
+
     try {
       const body = {
-        items: cart.map(i => ({
+        items: snap.cart.map(i => ({
           product_id: i.product.id,
           quantity: i.quantity,
           unit_price: i.product.price,
           item_note: i.itemNote || '',
         })),
-        total_amount: finalTotal,
-        discount_amount: discountAmount,
-        discount_name: selectedDiscount?.name || (manualDiscount ? `Giảm thủ công (${manualType === 'percent' ? manualDiscount + '%' : Number(manualDiscount).toLocaleString('vi-VN') + 'đ'})` : ''),
-        customer_paid: payNow ? (payMethod === 'transfer' ? finalTotal : customerPaid) : 0,
-        change_amount: payNow ? (payMethod === 'transfer' ? 0 : Math.max(0, customerPaid - finalTotal)) : 0,
-        note: note || '',
-        table_number: tableNumber || null,
+        total_amount: snap.finalTotal,
+        discount_amount: snap.discountAmount,
+        discount_name: snap.selectedDiscount?.name || (snap.manualDiscount ? `Giảm thủ công (${snap.manualType === 'percent' ? snap.manualDiscount + '%' : Number(snap.manualDiscount).toLocaleString('vi-VN') + 'đ'})` : ''),
+        customer_paid: snap.payNow ? (snap.payMethod === 'transfer' ? snap.finalTotal : snap.customerPaid) : 0,
+        change_amount: snap.payNow ? (snap.payMethod === 'transfer' ? 0 : Math.max(0, snap.customerPaid - snap.finalTotal)) : 0,
+        note: snap.note || '',
+        table_number: snap.tableNumber || null,
         status: 'pending',
-        is_paid: payNow,
-        pay_method: payNow ? payMethod : null,
+        is_paid: snap.payNow,
+        pay_method: snap.payNow ? snap.payMethod : null,
       }
-
 
       const res = await apiFetch('/api/orders', {
         method: 'POST',
@@ -710,23 +722,42 @@ export default function BanHangPage() {
       const data = await res.json()
 
       if (res.ok && data.success) {
-        const msg = payNow
-          ? (payMethod === 'transfer' ? '✅ Đã tạo đơn & chuyển khoản!' : '✅ Đã tạo đơn & thanh toán!')
+        const msg = snap.payNow
+          ? (snap.payMethod === 'transfer' ? '✅ Đã tạo đơn & chuyển khoản!' : '✅ Đã tạo đơn & thanh toán!')
           : '📋 Đã tạo đơn, thanh toán sau!'
         setSuccess(msg)
-        clearCart()
-        setCartOpen(false)
         setTimeout(() => setSuccess(''), 4000)
       } else {
+        // Restore cart on failure
+        setCart(snap.cart)
+        setTableNumber(snap.tableNumber)
+        setNote(snap.note)
+        setSelectedDiscount(snap.selectedDiscount)
+        setManualDiscount(snap.manualDiscount)
+        setManualType(snap.manualType)
+        setPayNow(snap.payNow)
+        setPayMethod(snap.payMethod)
+        setCustomerPaid(snap.customerPaid)
         setSuccess(`❌ Lỗi: ${data.error || 'Không tạo được đơn'}`)
         setTimeout(() => setSuccess(''), 5000)
       }
     } catch (err) {
       console.error('Submit error:', err)
+      // Restore cart on network error
+      setCart(snap.cart)
+      setTableNumber(snap.tableNumber)
+      setNote(snap.note)
+      setSelectedDiscount(snap.selectedDiscount)
+      setManualDiscount(snap.manualDiscount)
+      setManualType(snap.manualType)
+      setPayNow(snap.payNow)
+      setPayMethod(snap.payMethod)
+      setCustomerPaid(snap.customerPaid)
       setSuccess('❌ Lỗi kết nối server')
       setTimeout(() => setSuccess(''), 5000)
     } finally {
       setLoading(false)
+      submittingRef.current = false
     }
   }
 
@@ -810,6 +841,7 @@ export default function BanHangPage() {
                   <img
                     src={fixImgUrl(product.image_url)}
                     alt={product.name}
+                    loading="lazy"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     onError={e => { (e.target as HTMLImageElement).src = FALLBACK_IMG }}
                   />

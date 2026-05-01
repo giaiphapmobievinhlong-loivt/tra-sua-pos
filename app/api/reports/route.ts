@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
                  SUM(oi.subtotal) as total_revenue
           FROM order_items oi
           JOIN orders o ON o.id = oi.order_id
-          WHERE oi.created_at >= ${monthStart}::timestamptz AND oi.created_at < ${nextMonth}::timestamptz
+          WHERE o.created_at >= ${monthStart}::timestamptz AND o.created_at < ${nextMonth}::timestamptz
             AND o.status != 'cancelled' AND o.is_paid = true
           GROUP BY oi.product_name
           ORDER BY total_qty DESC LIMIT 20
@@ -131,8 +131,8 @@ export async function GET(req: NextRequest) {
         SELECT COALESCE(SUM(oi.quantity),0)::int as total_cups
         FROM order_items oi
         JOIN orders o ON o.id = oi.order_id
-        WHERE oi.created_at >= ${dayStart}::timestamptz
-          AND oi.created_at <  ${dayEnd}::timestamptz
+        WHERE o.created_at >= ${dayStart}::timestamptz
+          AND o.created_at <  ${dayEnd}::timestamptz
           AND o.status != 'cancelled' AND o.is_paid = true
       `,
       sql`
@@ -141,8 +141,8 @@ export async function GET(req: NextRequest) {
                SUM(oi.subtotal)::numeric as total_revenue
         FROM order_items oi
         JOIN orders o ON o.id = oi.order_id
-        WHERE oi.created_at >= ${dayStart}::timestamptz
-          AND oi.created_at <  ${dayEnd}::timestamptz
+        WHERE o.created_at >= ${dayStart}::timestamptz
+          AND o.created_at <  ${dayEnd}::timestamptz
           AND o.status != 'cancelled' AND o.is_paid = true
         GROUP BY oi.product_name
         ORDER BY total_qty DESC LIMIT 10
