@@ -13,8 +13,54 @@ export async function GET(req: NextRequest) {
     const rows = await sql`SELECT * FROM orders WHERE order_code = ${code}`
     if (!rows.length) return NextResponse.json({ error: 'Không tìm thấy đơn' }, { status: 404 })
     const order = rows[0]
-    const items = await sql`SELECT * FROM order_items WHERE order_id = ${order.id}`
+    const items = await sql`SELECT * FROM order_items WHERE order_id = ${order.id} ORDER BY id`
     return NextResponse.json({ order: { ...order, items } })
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 })
+  }
+}
+
+// Khách chỉnh sửa số lượng món khi đơn còn ở trạng thái pending
+export async function PUT(req: NextRequest) {
+  try {
+    const { code, updates } = await req.json() as {
+      code: string
+      updates: { id: number; quantity: number }[]
+    }
+
+    if (!code) return NextResponse.json({ error: 'Thiếu mã đơn' }, { status: 400 })
+    if (!updates?.length) return NextResponse.json({ error: 'Không có thay đổi' }, { status: 400 })
+
+    const [order] = await sql`SELECT id, status FROM orders WHERE order_code = ${code}`
+    if (!order) return NextResponse.json({ error: 'Không tìm thấy đơn' }, { status: 404 })
+    if (order.status !== 'pending') {
+      return NextResponse.json({ error: 'Đơn đang được xử lý, không thể chỉnh sửa' }, { status: 400 })
+    }
+
+    for (const u of updates) {
+      if (u.quantity <= 0) {
+        await sql`DELETE FROM order_items WHERE id = ${u.id} AND order_id = ${order.id}`
+      } else {
+        const [item] = await sql`SELECT unit_price FROM order_items WHERE id = ${u.id} AND order_id = ${order.id}`
+        if (!item) continue
+        const newSubtotal = Number(item.unit_price) * u.quantity
+        await sql`UPDATE order_items SET quantity = ${u.quantity}, subtotal = ${newSubtotal} WHERE id = ${u.id} AND order_id = ${order.id}`
+      }
+    }
+
+    // Recalculate total preserving any existing discount
+    await sql`
+      UPDATE orders
+      SET total_amount = GREATEST(0,
+        (SELECT COALESCE(SUM(subtotal), 0) FROM order_items WHERE order_id = ${order.id})
+        - COALESCE(discount_amount, 0)
+      )
+      WHERE id = ${order.id}
+    `
+
+    const rows = await sql`SELECT * FROM orders WHERE id = ${order.id}`
+    const items = await sql`SELECT * FROM order_items WHERE order_id = ${order.id} ORDER BY id`
+    return NextResponse.json({ order: { ...rows[0], items } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

@@ -114,7 +114,12 @@ export async function GET(req: NextRequest) {
       top_products: top_products.map(p => ({ ...p, total_qty: Number(p.total_qty), total_revenue: Number(p.total_revenue) })),
       trend: trend.map(t => ({ ...t, revenue: Number(t.revenue), order_count: Number(t.order_count) })),
       transactions: transactions.map(t => ({ ...t, amount: Number(t.amount) })),
-    }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } })
+    }, { headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0, s-maxage=0',
+      'Surrogate-Control': 'no-store',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    } })
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: String(error) }, { status: 500 })

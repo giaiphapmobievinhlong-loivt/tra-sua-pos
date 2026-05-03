@@ -50,17 +50,25 @@ function getTodayVN() {
   return todayVN()
 }
 
-// ── Add Items Modal ──────────────────────────────────────────
-function AddItemsModal({ order, onClose, onAdded }: {
+// ── Edit Order Modal ─────────────────────────────────────────
+function EditOrderModal({ order, onClose, onSaved }: {
   order: Order
   onClose: () => void
-  onAdded: (updated: Order) => void
+  onSaved: (updated: Order) => void
 }) {
+  const isPending = order.status === 'pending'
+
+  // Existing items: track local qty (0 = to be deleted)
+  const [existingQtys, setExistingQtys] = useState<Record<number, number>>(
+    () => Object.fromEntries(order.items.map(i => [i.id, i.quantity]))
+  )
+
+  // New items to add
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<{ name: string }[]>([])
   const [activeCategory, setActiveCategory] = useState('all')
   const [search, setSearch] = useState('')
-  const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([])
+  const [newItems, setNewItems] = useState<{ product: Product; quantity: number }[]>([])
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
@@ -76,39 +84,60 @@ function AddItemsModal({ order, onClose, onAdded }: {
     return matchSearch && matchCat
   })
 
-  function addToCart(product: Product) {
-    setCart(prev => {
-      const existing = prev.find(i => i.product.id === product.id)
-      if (existing) return prev.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i)
+  function setExistingQty(itemId: number, qty: number) {
+    const orig = order.items.find(i => i.id === itemId)!
+    const min = isPending ? 0 : orig.quantity   // non-pending: can't go below original
+    setExistingQtys(prev => ({ ...prev, [itemId]: Math.max(min, qty) }))
+  }
+
+  function addNewItem(product: Product) {
+    setNewItems(prev => {
+      const ex = prev.find(i => i.product.id === product.id)
+      if (ex) return prev.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i)
       return [...prev, { product, quantity: 1 }]
     })
   }
-  function updateQty(id: number, delta: number) {
-    setCart(prev => prev.map(i => i.product.id === id ? { ...i, quantity: i.quantity + delta } : i).filter(i => i.quantity > 0))
+  function updateNewQty(id: number, delta: number) {
+    setNewItems(prev => prev.map(i => i.product.id === id ? { ...i, quantity: i.quantity + delta } : i).filter(i => i.quantity > 0))
   }
 
-  const addedSubtotal = cart.reduce((s, i) => s + i.product.price * i.quantity, 0)
-  const totalItems = cart.reduce((s, i) => s + i.quantity, 0)
+  // Compute diff for submit
+  const updates = order.items
+    .filter(i => existingQtys[i.id] !== i.quantity && existingQtys[i.id] > 0)
+    .map(i => ({ id: i.id, quantity: existingQtys[i.id] }))
+  const deletes = isPending
+    ? order.items.filter(i => existingQtys[i.id] === 0).map(i => i.id)
+    : []
+  const adds = newItems.map(i => ({
+    product_id: i.product.id,
+    product_name: i.product.name,
+    quantity: i.quantity,
+    unit_price: i.product.price,
+  }))
 
-  async function handleSubmit() {
-    if (!cart.length) return
+  const hasChanges = updates.length > 0 || deletes.length > 0 || adds.length > 0
+
+  // Preview new total
+  const existingTotal = order.items.reduce((s, i) => {
+    const qty = existingQtys[i.id] ?? i.quantity
+    return s + i.unit_price * qty
+  }, 0)
+  const newTotal = existingTotal + newItems.reduce((s, i) => s + i.product.price * i.quantity, 0)
+  const discount = (order.discount_amount ?? 0)
+  const previewTotal = Math.max(0, newTotal - Number(discount))
+
+  async function handleSave() {
+    if (!hasChanges) return
     setSubmitting(true)
     try {
       const res = await apiFetch(`/api/orders/${order.id}/items`, {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: cart.map(i => ({
-            product_id: i.product.id,
-            product_name: i.product.name,
-            quantity: i.quantity,
-            unit_price: i.product.price,
-          })),
-        }),
+        body: JSON.stringify({ updates, deletes, adds }),
       })
       const data = await res.json()
       if (res.ok && data.success) {
-        onAdded(data.order)
+        onSaved(data.order)
         onClose()
       }
     } finally {
@@ -118,81 +147,140 @@ function AddItemsModal({ order, onClose, onAdded }: {
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center p-0 md:p-4">
-      <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-lg shadow-2xl flex flex-col" style={{ maxHeight: '90vh' }}>
+      <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-lg shadow-2xl flex flex-col" style={{ maxHeight: '92vh' }}>
+
         {/* Header */}
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
           <div>
-            <h3 className="font-bold text-gray-800 text-lg">Thêm món</h3>
-            <p className="text-xs text-gray-400">Đơn #{order.order_code} · hiện {fmt(order.total_amount)}đ</p>
+            <h3 className="font-bold text-gray-800 text-lg">Sửa đơn #{order.order_code}</h3>
+            <p className="text-xs text-gray-400">
+              {isPending ? 'Đang chờ — có thể xoá & sửa số lượng' : 'Đang pha — chỉ được tăng số lượng'}
+            </p>
           </div>
           <button onClick={onClose} className="p-2 text-gray-400 hover:bg-gray-100 rounded-xl transition-all">
             <X size={20} />
           </button>
         </div>
 
-        {/* Search + category filter */}
-        <div className="px-4 py-3 shrink-0 space-y-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-            <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Tìm món..."
-              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />
+        <div className="flex-1 overflow-y-auto">
+          {/* Section 1: Existing items */}
+          <div className="px-4 pt-4 pb-2">
+            <p className="text-xs font-bold text-gray-500 uppercase mb-2">Món đang có</p>
+            <div className="space-y-2">
+              {order.items.map(item => {
+                const qty = existingQtys[item.id] ?? item.quantity
+                const isDeleted = qty === 0
+                return (
+                  <div key={item.id} className={`flex items-center gap-2 py-2 px-3 rounded-xl border transition-all ${isDeleted ? 'bg-red-50 border-red-200 opacity-60' : 'bg-gray-50 border-transparent'}`}>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium truncate ${isDeleted ? 'line-through text-gray-400' : 'text-gray-800'}`}>{item.product_name}</p>
+                      <p className="text-xs text-gray-400">{Number(item.unit_price).toLocaleString('vi-VN')}đ/ly</p>
+                    </div>
+                    {isDeleted ? (
+                      <button onClick={() => setExistingQty(item.id, item.quantity)}
+                        className="text-xs text-orange-500 font-semibold hover:underline shrink-0">Khôi phục</button>
+                    ) : (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {/* Decrease — shown only if pending or qty > original */}
+                        {(isPending || qty > item.quantity) ? (
+                          <button onClick={() => setExistingQty(item.id, qty - 1)}
+                            className="w-7 h-7 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-100 active:scale-95 transition-all">
+                            {isPending && qty === 1 ? <XCircle size={13} className="text-red-400" /> : <Minus size={12} />}
+                          </button>
+                        ) : (
+                          <div className="w-7 h-7" /> /* spacer */
+                        )}
+                        <span className={`text-sm font-bold w-6 text-center ${qty !== item.quantity ? 'text-orange-600' : 'text-gray-800'}`}>{qty}</span>
+                        <button onClick={() => setExistingQty(item.id, qty + 1)}
+                          className="w-7 h-7 rounded-full border border-orange-200 bg-orange-50 flex items-center justify-center text-orange-500 hover:bg-orange-100 active:scale-95 transition-all">
+                          <Plus size={12} />
+                        </button>
+                      </div>
+                    )}
+                    <p className="text-sm font-bold text-orange-600 shrink-0 w-16 text-right">
+                      {(item.unit_price * Math.max(0, qty)).toLocaleString('vi-VN')}đ
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-            <button onClick={() => setActiveCategory('all')} className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap border transition-all ${activeCategory === 'all' ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-200'}`}>Tất cả</button>
-            {categories.map(c => (
-              <button key={c.name} onClick={() => setActiveCategory(c.name)} className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap border transition-all ${activeCategory === c.name ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-200'}`}>{c.name}</button>
-            ))}
-          </div>
-        </div>
 
-        {/* Product grid */}
-        <div className="flex-1 overflow-y-auto px-4">
-          <div className="grid grid-cols-3 gap-2 pb-4">
-            {filtered.map(p => {
-              const inCart = cart.find(i => i.product.id === p.id)
-              return (
-                <button key={p.id} onClick={() => addToCart(p)}
-                  className="bg-gray-50 rounded-xl p-2.5 text-left border border-transparent hover:border-orange-300 active:scale-95 transition-all relative">
-                  {inCart && (
-                    <span className="absolute top-1.5 right-1.5 bg-orange-500 text-white text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center">{inCart.quantity}</span>
-                  )}
-                  <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight mb-1 pr-4">{p.name}</p>
-                  <p className="text-orange-500 font-bold text-xs">{Number(p.price).toLocaleString('vi-VN')}đ</p>
-                </button>
-              )
-            })}
+          {/* Divider */}
+          <div className="px-4 pt-3 pb-1">
+            <p className="text-xs font-bold text-gray-500 uppercase mb-2">Thêm món mới</p>
+            <div className="space-y-2">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
+                <input value={search} onChange={e => setSearch(e.target.value)}
+                  placeholder="Tìm món..."
+                  className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />
+              </div>
+              {/* Categories */}
+              <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                <button onClick={() => setActiveCategory('all')} className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap border transition-all ${activeCategory === 'all' ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-200'}`}>Tất cả</button>
+                {categories.map(c => (
+                  <button key={c.name} onClick={() => setActiveCategory(c.name)} className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap border transition-all ${activeCategory === c.name ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-200'}`}>{c.name}</button>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Cart summary */}
-        {cart.length > 0 && (
-          <div className="px-4 py-4 border-t border-gray-100 shrink-0 space-y-2">
-            <div className="space-y-1.5 max-h-28 overflow-y-auto">
-              {cart.map(i => (
-                <div key={i.product.id} className="flex items-center gap-2">
+          {/* Product grid */}
+          <div className="px-4 pb-3">
+            <div className="grid grid-cols-3 gap-2">
+              {filtered.map(p => {
+                const inCart = newItems.find(i => i.product.id === p.id)
+                return (
+                  <button key={p.id} onClick={() => addNewItem(p)}
+                    className="bg-gray-50 rounded-xl p-2.5 text-left border border-transparent hover:border-orange-300 active:scale-95 transition-all relative">
+                    {inCart && (
+                      <span className="absolute top-1.5 right-1.5 bg-orange-500 text-white text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center">{inCart.quantity}</span>
+                    )}
+                    <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight mb-1 pr-4">{p.name}</p>
+                    <p className="text-orange-500 font-bold text-xs">{Number(p.price).toLocaleString('vi-VN')}đ</p>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* New items mini-cart */}
+          {newItems.length > 0 && (
+            <div className="px-4 pb-3 space-y-1.5">
+              <p className="text-xs font-bold text-green-600 uppercase">Sắp thêm</p>
+              {newItems.map(i => (
+                <div key={i.product.id} className="flex items-center gap-2 bg-green-50 rounded-xl px-3 py-2 border border-green-100">
                   <p className="text-sm text-gray-700 truncate flex-1">{i.product.name}</p>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <button onClick={() => updateQty(i.product.id, -1)} className="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 active:scale-95"><Minus size={11} /></button>
+                    <button onClick={() => updateNewQty(i.product.id, -1)} className="w-6 h-6 rounded-full border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:bg-gray-50 active:scale-95"><Minus size={11} /></button>
                     <span className="text-sm font-bold w-5 text-center">{i.quantity}</span>
-                    <button onClick={() => updateQty(i.product.id, 1)} className="w-6 h-6 rounded-full border border-orange-200 bg-orange-50 flex items-center justify-center text-orange-500 hover:bg-orange-100 active:scale-95"><Plus size={11} /></button>
+                    <button onClick={() => updateNewQty(i.product.id, 1)} className="w-6 h-6 rounded-full border border-orange-200 bg-orange-50 flex items-center justify-center text-orange-500 hover:bg-orange-100 active:scale-95"><Plus size={11} /></button>
                   </div>
-                  <p className="text-sm font-bold text-orange-600 shrink-0 w-20 text-right">{(i.product.price * i.quantity).toLocaleString('vi-VN')}đ</p>
+                  <p className="text-sm font-bold text-orange-600 shrink-0 w-16 text-right">{(i.product.price * i.quantity).toLocaleString('vi-VN')}đ</p>
                 </div>
               ))}
             </div>
-            <div className="flex items-center justify-between border-t border-gray-100 pt-2">
-              <span className="text-sm font-semibold text-gray-600">
-                + Thêm: <span className="text-orange-600 font-bold">{addedSubtotal.toLocaleString('vi-VN')}đ</span>
-              </span>
-              <button onClick={handleSubmit} disabled={submitting}
-                className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-5 py-2.5 rounded-xl text-sm disabled:bg-gray-200 disabled:text-gray-400 active:scale-95 transition-all flex items-center gap-2">
-                <ShoppingBag size={15} />
-                {submitting ? 'Đang lưu...' : `Thêm ${totalItems} món`}
-              </button>
-            </div>
+          )}
+        </div>
+
+        {/* Footer: preview + save */}
+        <div className="px-4 py-4 border-t border-gray-100 shrink-0">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-gray-500">Tổng mới:</span>
+            <span className="text-lg font-bold text-orange-600">{previewTotal.toLocaleString('vi-VN')}đ</span>
           </div>
-        )}
+          <div className="flex gap-3">
+            <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all">Hủy</button>
+            <button onClick={handleSave} disabled={!hasChanges || submitting}
+              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 rounded-xl text-sm disabled:bg-gray-200 disabled:text-gray-400 active:scale-95 transition-all flex items-center justify-center gap-2">
+              <ShoppingBag size={15} />
+              {submitting ? 'Đang lưu...' : 'Lưu thay đổi'}
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
   )
@@ -344,7 +432,7 @@ function OrderCard({ order, onStatusChange, onPay, onCancel, onAddItems }: {
             )}
             {!order.is_paid && (
               <button onClick={() => onAddItems(order)} className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-100 active:scale-95 flex items-center gap-1">
-                <Plus size={11} /> Thêm món
+                <Plus size={11} /> Sửa đơn
               </button>
             )}
             {!order.is_paid && order.source !== 'web' && (
@@ -626,10 +714,10 @@ export default function DonHangPage() {
         <PayModal order={payingOrder} onClose={() => setPayingOrder(null)} onPaid={handlePay} />
       )}
       {addingItemsOrder && (
-        <AddItemsModal
+        <EditOrderModal
           order={addingItemsOrder}
           onClose={() => setAddingItemsOrder(null)}
-          onAdded={updated => {
+          onSaved={(updated: Order) => {
             setOrders(prev => prev.map(o => o.id === updated.id ? { ...o, ...updated } : o))
             setAddingItemsOrder(null)
           }}

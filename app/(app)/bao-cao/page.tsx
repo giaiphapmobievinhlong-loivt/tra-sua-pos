@@ -77,7 +77,9 @@ function DailyReport() {
   const fetch_ = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/reports?date=${date}&t=${Date.now()}`, { cache: 'no-store' })
+      const res = await fetch(`/api/reports?date=${date}&t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+      })
       setData(await res.json())
     } finally { setLoading(false) }
   }, [date])
@@ -93,8 +95,8 @@ function DailyReport() {
       else fetch_()                        // cùng ngày → re-fetch
     }
     document.addEventListener('visibilitychange', onVisible)
-    // Auto-refresh 30s chỉ khi đang xem hôm nay
-    const iv = isToday ? setInterval(fetch_, 30000) : null
+    // Auto-refresh 15s chỉ khi đang xem hôm nay
+    const iv = isToday ? setInterval(fetch_, 15000) : null
     return () => {
       if (iv) clearInterval(iv)
       document.removeEventListener('visibilitychange', onVisible)
@@ -225,7 +227,9 @@ function MonthlyReport() {
   const fetch_ = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/reports/monthly?year=${year}&month=${month}&t=${Date.now()}`, { cache: 'no-store' })
+      const res = await fetch(`/api/reports/monthly?year=${year}&month=${month}&t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+      })
       const json = await res.json()
       if (!json.error) setData(json)
     } finally { setLoading(false) }

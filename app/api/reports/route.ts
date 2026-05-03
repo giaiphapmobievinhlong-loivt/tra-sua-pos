@@ -2,6 +2,13 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
 
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0, s-maxage=0',
+  'Surrogate-Control': 'no-store',
+  'Pragma': 'no-cache',
+  'Expires': '0',
+}
+
 // Get current date in VN timezone (safe on Vercel/UTC servers)
 function todayVN() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })
@@ -85,7 +92,7 @@ export async function GET(req: NextRequest) {
         total_chi:     Number(thuChi[0].total_chi),
         estimated_profit: Number(stats[0].total_revenue) + Number(thuChi[0].total_thu) - Number(thuChi[0].total_chi),
         daily, top_products, trend,
-      }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' } })
+      }, { headers: NO_CACHE_HEADERS })
     }
 
     // ── Daily report ───────────────────────────────────────────
@@ -157,7 +164,7 @@ export async function GET(req: NextRequest) {
       total_cups:       Number(cups[0].total_cups),
       top_products: top_products.map(p => ({ ...p, total_qty: Number(p.total_qty), total_revenue: Number(p.total_revenue) })),
       recent_orders, hourly,
-    }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' } })
+    }, { headers: NO_CACHE_HEADERS })
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: String(error) }, { status: 500 })
