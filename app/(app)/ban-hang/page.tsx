@@ -420,12 +420,6 @@ function CartPanel({
           )}
         </div>
 
-        {success && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded-xl text-sm text-center font-medium">
-            {success}
-          </div>
-        )}
-
         {/* Submit */}
         <button
           onClick={handleSubmit}
@@ -906,6 +900,15 @@ export default function BanHangPage() {
           </div>
         </button>
       </div>
+
+      {/* ── Success / error toast ───────────────── */}
+      {success && (
+        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[100] px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold text-white transition-all ${
+          success.startsWith('❌') ? 'bg-red-500' : 'bg-green-500'
+        }`}>
+          {success}
+        </div>
+      )}
 
       {/* ── Mobile cart bottom sheet ─────────────── */}
       {cartOpen && (

@@ -84,13 +84,21 @@ function DailyReport() {
 
   useEffect(() => {
     fetch_()
-    // Auto-refresh 30s khi đang xem hôm nay
     const isToday = date === todayVN()
-    if (!isToday) return
-    const iv = setInterval(fetch_, 30000)
-    const onVisible = () => { if (document.visibilityState === 'visible') fetch_() }
+    // Khi tab active trở lại: nếu ngày đã đổi sang hôm nay thì tự cập nhật date
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      const today = todayVN()
+      if (today !== date) setDate(today)   // sang ngày mới → auto cập nhật
+      else fetch_()                        // cùng ngày → re-fetch
+    }
     document.addEventListener('visibilitychange', onVisible)
-    return () => { clearInterval(iv); document.removeEventListener('visibilitychange', onVisible) }
+    // Auto-refresh 30s chỉ khi đang xem hôm nay
+    const iv = isToday ? setInterval(fetch_, 30000) : null
+    return () => {
+      if (iv) clearInterval(iv)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [fetch_, date])
 
   const hourlyChart = (data?.hourly || []).map(h => ({ name: `${h.hour}h`, revenue: h.revenue, count: h.count }))
@@ -100,8 +108,9 @@ function DailyReport() {
       {/* Date picker */}
       <div className="flex items-center gap-2">
         <button onClick={() => {
-          const d = new Date(date); d.setDate(d.getDate() - 1)
-          setDate(d.toISOString().split('T')[0])
+          const [y, m, d] = date.split('-').map(Number)
+          const prev = new Date(Date.UTC(y, m - 1, d - 1))
+          setDate(prev.toISOString().slice(0, 10))
         }} className="p-2 bg-white rounded-xl border border-gray-200 hover:bg-gray-50 active:scale-95 transition-all">
           <ChevronLeft size={16} className="text-gray-600" />
         </button>
@@ -111,8 +120,9 @@ function DailyReport() {
             className="flex-1 text-sm font-semibold text-gray-800 bg-transparent focus:outline-none" />
         </div>
         <button onClick={() => {
-          const d = new Date(date); d.setDate(d.getDate() + 1)
-          setDate(d.toISOString().split('T')[0])
+          const [y, m, d] = date.split('-').map(Number)
+          const next = new Date(Date.UTC(y, m - 1, d + 1))
+          setDate(next.toISOString().slice(0, 10))
         }} className="p-2 bg-white rounded-xl border border-gray-200 hover:bg-gray-50 active:scale-95 transition-all">
           <ChevronRight size={16} className="text-gray-600" />
         </button>
