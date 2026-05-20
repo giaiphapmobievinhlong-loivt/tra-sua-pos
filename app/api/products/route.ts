@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
         SELECT DISTINCT c.id, c.name, c.slug
         FROM categories c
         INNER JOIN products p ON p.category_id = c.id AND p.is_active IS NOT FALSE
-        WHERE c.store_id = ${user.store_id}
+        WHERE p.store_id = ${user.store_id}
         ORDER BY c.name
       `,
     ])

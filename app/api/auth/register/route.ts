@@ -38,7 +38,18 @@ export async function POST(req: NextRequest) {
       RETURNING id, store_id, username, full_name, role
     `
 
-    // 3. Tạo quota free: 10 đơn/ngày
+    // 3. Tạo categories mặc định cho store mới
+    await sql`
+      INSERT INTO categories (store_id, name, slug) VALUES
+        (${store.id}, 'Trà sữa',  'tra-sua'),
+        (${store.id}, 'Trà',      'tra'),
+        (${store.id}, 'Cà phê',   'ca-phe'),
+        (${store.id}, 'Nước ép',  'nuoc-ep'),
+        (${store.id}, 'Khác',     'khac')
+      ON CONFLICT (store_id, slug) DO NOTHING
+    `
+
+    // 4. Tạo quota free: 10 đơn/ngày
     await sql`
       INSERT INTO quotas (store_id, plan, daily_limit, orders_used_today, reset_date)
       VALUES (${store.id}, 'free', 10, 0, CURRENT_DATE)
