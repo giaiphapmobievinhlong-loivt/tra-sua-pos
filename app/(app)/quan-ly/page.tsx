@@ -1386,6 +1386,8 @@ interface Material {
   unit: string
   quantity: number
   min_quantity: number
+  price_per_unit: number
+  price_note: string
 }
 
 interface MaterialLog {
@@ -1413,7 +1415,7 @@ function InventoryTab() {
   const [logs, setLogs] = useState<MaterialLog[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
   const [deleting, setDeleting] = useState<Material | null>(null)
-  const [form, setForm] = useState({ name: '', unit: 'kg', min_quantity: '0' })
+  const [form, setForm] = useState({ name: '', unit: 'kg', min_quantity: '0', price_per_unit: '', price_note: '' })
   const [logForm, setLogForm] = useState({ type: 'in' as 'in' | 'out' | 'adjust', quantity: '', note: '' })
   const [saving, setSaving] = useState(false)
   const [logSaving, setLogSaving] = useState(false)
@@ -1494,14 +1496,14 @@ function InventoryTab() {
 
   function openAdd() {
     setEditing(null)
-    setForm({ name: '', unit: 'kg', min_quantity: '0' })
+    setForm({ name: '', unit: 'kg', min_quantity: '0', price_per_unit: '', price_note: '' })
     setError('')
     setShowAdd(true)
   }
 
   function openEdit(m: Material) {
     setEditing(m)
-    setForm({ name: m.name, unit: m.unit, min_quantity: String(m.min_quantity) })
+    setForm({ name: m.name, unit: m.unit, min_quantity: String(m.min_quantity), price_per_unit: m.price_per_unit > 0 ? String(m.price_per_unit) : '', price_note: m.price_note || '' })
     setError('')
     setShowAdd(true)
   }
@@ -1519,8 +1521,8 @@ function InventoryTab() {
       const url = editing ? `/api/materials/${editing.id}` : '/api/materials'
       const method = editing ? 'PUT' : 'POST'
       const body = editing
-        ? { name: form.name, unit: form.unit, min_quantity: Number(form.min_quantity) }
-        : { name: form.name, unit: form.unit, quantity: 0, min_quantity: Number(form.min_quantity) }
+        ? { name: form.name, unit: form.unit, min_quantity: Number(form.min_quantity), price_per_unit: Number(form.price_per_unit) || 0, price_note: form.price_note }
+        : { name: form.name, unit: form.unit, quantity: 0, min_quantity: Number(form.min_quantity), price_per_unit: Number(form.price_per_unit) || 0, price_note: form.price_note }
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const d = await res.json()
       if (!res.ok) { setError(d.error || 'Lỗi'); return }
@@ -1671,7 +1673,12 @@ function InventoryTab() {
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-gray-800 truncate">{m.name}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Tối thiểu: {m.min_quantity} {m.unit}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {m.price_per_unit > 0
+                        ? <span className="text-orange-500 font-semibold">{m.price_per_unit.toLocaleString('vi-VN')}đ/{m.unit}</span>
+                        : <span className="italic">Chưa có giá</span>
+                      }
+                    </p>
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2" onClick={e => e.stopPropagation()}>
                     <button onClick={() => openEdit(m)} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors">
@@ -1721,6 +1728,21 @@ function InventoryTab() {
                   className="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300"
                   placeholder="0" min="0" />
               </div>
+            </div>
+            <div>
+              <label className="text-sm font-bold text-gray-700 block mb-1.5">Giá / đơn vị <span className="text-gray-400 font-normal">(dùng tính cost)</span></label>
+              <div className="flex gap-2">
+                <input type="number" value={form.price_per_unit} onChange={e => setForm(f => ({ ...f, price_per_unit: e.target.value }))}
+                  className="flex-1 text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  placeholder="VD: 55000" min="0" />
+                <span className="flex items-center text-sm text-gray-400 shrink-0">đ/{form.unit || 'đơn vị'}</span>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-bold text-gray-700 block mb-1.5">Ghi chú giá <span className="text-gray-400 font-normal">(tuỳ chọn)</span></label>
+              <input type="text" value={form.price_note} onChange={e => setForm(f => ({ ...f, price_note: e.target.value }))}
+                className="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300"
+                placeholder="VD: 49k/900g, mua ở chợ đầu mối" />
             </div>
             {error && <p className="text-xs text-red-500">{error}</p>}
             <div className="flex gap-3 pt-1">

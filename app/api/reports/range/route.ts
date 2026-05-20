@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
+import { getUserFromRequest } from '@/lib/auth'
 
 function todayVN() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })
@@ -8,11 +9,13 @@ function todayVN() {
 
 export async function GET(req: NextRequest) {
   try {
+    const user = await getUserFromRequest(req)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const from = req.nextUrl.searchParams.get('from') || todayVN()
     const to   = req.nextUrl.searchParams.get('to')   || todayVN()
 
     const dateStart = `${from}T00:00:00+07:00`
-    // nextDay after 'to' as exclusive upper bound
     const toDate = new Date(`${to}T00:00:00+07:00`)
     toDate.setDate(toDate.getDate() + 1)
     const dateEnd = toDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }) + 'T00:00:00+07:00'
@@ -25,7 +28,8 @@ export async function GET(req: NextRequest) {
           COALESCE(AVG(total_amount), 0) as avg_order,
           COALESCE(SUM(discount_amount), 0) as total_discount
         FROM orders
-        WHERE created_at >= ${dateStart}::timestamptz AND created_at < ${dateEnd}::timestamptz
+        WHERE store_id = ${user.store_id}
+          AND created_at >= ${dateStart}::timestamptz AND created_at < ${dateEnd}::timestamptz
           AND status != 'cancelled' AND is_paid = true
       `,
       sql`
@@ -33,9 +37,9 @@ export async function GET(req: NextRequest) {
           COALESCE(SUM(CASE WHEN type='thu' THEN amount ELSE 0 END), 0) as total_thu,
           COALESCE(SUM(CASE WHEN type='chi' THEN amount ELSE 0 END), 0) as total_chi
         FROM transactions
-        WHERE transaction_date >= ${from} AND transaction_date <= ${to}
+        WHERE store_id = ${user.store_id}
+          AND transaction_date >= ${from} AND transaction_date <= ${to}
       `,
-      // Doanh thu theo ngày (VN) — cups từ đơn completed (kể cả chưa thu tiền)
       sql`
         SELECT
           day,
@@ -49,7 +53,8 @@ export async function GET(req: NextRequest) {
             COUNT(*) as order_count,
             0 as cups
           FROM orders
-          WHERE created_at >= ${dateStart}::timestamptz AND created_at < ${dateEnd}::timestamptz
+          WHERE store_id = ${user.store_id}
+            AND created_at >= ${dateStart}::timestamptz AND created_at < ${dateEnd}::timestamptz
             AND status != 'cancelled' AND is_paid = true
           GROUP BY ((created_at + interval '7 hours')::date)
           UNION ALL
@@ -60,44 +65,45 @@ export async function GET(req: NextRequest) {
             SUM(oi.quantity) as cups
           FROM order_items oi
           JOIN orders o ON o.id = oi.order_id
-          WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at < ${dateEnd}::timestamptz
+          WHERE o.store_id = ${user.store_id}
+            AND o.created_at >= ${dateStart}::timestamptz AND o.created_at < ${dateEnd}::timestamptz
             AND o.status = 'completed'
           GROUP BY ((o.created_at + interval '7 hours')::date)
         ) t
         GROUP BY day
         ORDER BY day
       `,
-      // Top sản phẩm
       sql`
         SELECT oi.product_name,
                SUM(oi.quantity)::int as total_qty,
                SUM(oi.subtotal)::numeric as total_revenue
         FROM order_items oi
         JOIN orders o ON o.id = oi.order_id
-        WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at < ${dateEnd}::timestamptz
+        WHERE o.store_id = ${user.store_id}
+          AND o.created_at >= ${dateStart}::timestamptz AND o.created_at < ${dateEnd}::timestamptz
           AND o.status = 'completed'
         GROUP BY oi.product_name
         ORDER BY total_qty DESC
         LIMIT 15
       `,
-      // Phương thức thanh toán
       sql`
         SELECT pay_method,
                COUNT(*) as order_count,
                COALESCE(SUM(total_amount), 0) as revenue
         FROM orders
-        WHERE created_at >= ${dateStart}::timestamptz AND created_at < ${dateEnd}::timestamptz
+        WHERE store_id = ${user.store_id}
+          AND created_at >= ${dateStart}::timestamptz AND created_at < ${dateEnd}::timestamptz
           AND status != 'cancelled' AND is_paid = true
         GROUP BY pay_method
       `,
     ])
 
-    // Tổng ly = đơn completed trong range
     const cups = await sql`
       SELECT COALESCE(SUM(oi.quantity), 0)::int as total_cups
       FROM order_items oi
       JOIN orders o ON o.id = oi.order_id
-      WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at < ${dateEnd}::timestamptz
+      WHERE o.store_id = ${user.store_id}
+        AND o.created_at >= ${dateStart}::timestamptz AND o.created_at < ${dateEnd}::timestamptz
         AND o.status = 'completed'
     `
 

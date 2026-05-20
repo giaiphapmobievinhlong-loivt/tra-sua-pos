@@ -7,7 +7,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   try {
     const user = await getUserFromRequest(req)
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    await sql`DELETE FROM transactions WHERE id = ${Number((await params).id)}`
+    await sql`DELETE FROM transactions WHERE id = ${Number((await params).id)} AND store_id = ${user.store_id}`
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 })

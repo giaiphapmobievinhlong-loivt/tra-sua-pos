@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   try {
     const user = await getUserFromRequest(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    const rows = await sql`SELECT key, value FROM settings`
+    const rows = await sql`SELECT key, value FROM settings WHERE store_id = ${user.store_id}`
     const settings: Record<string, string> = {}
     rows.forEach((r) => { settings[r.key] = r.value })
     return NextResponse.json(settings)
@@ -23,8 +23,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     await Promise.all(
       Object.entries(body).map(([key, value]) =>
-        sql`INSERT INTO settings (key, value) VALUES (${key}, ${String(value)})
-            ON CONFLICT (key) DO UPDATE SET value = ${String(value)}, updated_at = NOW()`
+        sql`INSERT INTO settings (store_id, key, value) VALUES (${user.store_id}, ${key}, ${String(value)})
+            ON CONFLICT (store_id, key) DO UPDATE SET value = ${String(value)}, updated_at = NOW()`
       )
     )
     return NextResponse.json({ success: true })

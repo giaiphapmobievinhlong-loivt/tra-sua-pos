@@ -1,13 +1,18 @@
 export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
+import { getUserFromRequest } from '@/lib/auth'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const user = await getUserFromRequest(req)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const products = await sql`
       SELECT p.*, c.name as category_name
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.store_id = ${user.store_id}
       ORDER BY p.sort_order ASC NULLS LAST, p.id ASC
     `
     return NextResponse.json({ products })
@@ -18,12 +23,15 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await getUserFromRequest(req)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const { name, price, category_id, image_url, is_active, sort_order } = await req.json()
     if (!name || !price || !category_id) return NextResponse.json({ error: 'Thiếu thông tin bắt buộc' }, { status: 400 })
 
     const rows = await sql`
-      INSERT INTO products (name, price, category_id, image_url, is_active, sort_order)
-      VALUES (${name}, ${price}, ${category_id}, ${image_url || ''}, ${is_active ?? true}, ${sort_order || 0})
+      INSERT INTO products (store_id, name, price, category_id, image_url, is_active, sort_order)
+      VALUES (${user.store_id}, ${name}, ${price}, ${category_id}, ${image_url || ''}, ${is_active ?? true}, ${sort_order || 0})
       RETURNING *
     `
     return NextResponse.json({ product: rows[0] })

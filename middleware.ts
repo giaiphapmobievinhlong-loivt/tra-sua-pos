@@ -8,18 +8,20 @@ const JWT_SECRET = new TextEncoder().encode(
 // Role → allowed page prefixes
 const ROLE_ROUTES: Record<string, string[]> = {
   staff:   ['/ban-hang', '/thu-chi', '/don-hang', '/giao-hang'],
-  manager: ['/ban-hang', '/thu-chi', '/don-hang', '/giao-hang', '/bao-cao'],
-  admin:   ['/ban-hang', '/thu-chi', '/don-hang', '/giao-hang', '/bao-cao', '/quan-ly'],
+  manager: ['/ban-hang', '/thu-chi', '/don-hang', '/giao-hang', '/bao-cao', '/chi-phi', '/billing'],
+  admin:   ['/ban-hang', '/thu-chi', '/don-hang', '/giao-hang', '/bao-cao', '/chi-phi', '/billing', '/quan-ly'],
 }
 
 // Routes that never need auth check (public)
 function isPublic(pathname: string) {
   return (
     pathname.startsWith('/login') ||
+    pathname.startsWith('/register') ||
     pathname.startsWith('/order') ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/setup') ||
     pathname.startsWith('/api/public') ||
+    pathname.startsWith('/api/payments/webhook') ||
     pathname.startsWith('/api/products') ||
     pathname.startsWith('/api/settings') ||
     pathname.startsWith('/_next') ||

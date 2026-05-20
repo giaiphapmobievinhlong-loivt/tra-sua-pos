@@ -1,10 +1,14 @@
 export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
+import { getUserFromRequest } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
   try {
-    const vnToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }) // "YYYY-MM-DD"
+    const user = await getUserFromRequest(req)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const vnToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })
     const year  = Number(req.nextUrl.searchParams.get('year')  || vnToday.slice(0, 4))
     const month = Number(req.nextUrl.searchParams.get('month') || vnToday.slice(5, 7))
 
@@ -13,53 +17,50 @@ export async function GET(req: NextRequest) {
     const lastDayPad = String(lastDay).padStart(2, '0')
     const tzStart = `${year}-${monthPad}-01T00:00:00+07:00`
     const tzEnd   = `${year}-${monthPad}-${lastDayPad}T23:59:59+07:00`
+    const startDate = `${year}-${monthPad}-01`
+    const endDate   = `${year}-${monthPad}-${lastDayPad}`
 
-    // Daily breakdown — group by VN date (UTC+7)
     const daily = await sql`
       SELECT
         ((created_at + interval '7 hours')::date)::text as day,
         COALESCE(SUM(total_amount), 0)::numeric as revenue,
         COUNT(*)::int as order_count
       FROM orders
-      WHERE created_at >= ${tzStart}::timestamptz AND created_at <= ${tzEnd}::timestamptz
-        AND status != 'cancelled'
-          AND is_paid = true
+      WHERE store_id = ${user.store_id}
+        AND created_at >= ${tzStart}::timestamptz AND created_at <= ${tzEnd}::timestamptz
+        AND status != 'cancelled' AND is_paid = true
       GROUP BY day ORDER BY day
     `
 
-    // Monthly totals
     const totals = await sql`
       SELECT
         COALESCE(SUM(total_amount), 0)::numeric as total_revenue,
         COUNT(*)::int as order_count,
         COALESCE(AVG(total_amount), 0)::numeric as avg_order
       FROM orders
-      WHERE created_at >= ${tzStart}::timestamptz AND created_at <= ${tzEnd}::timestamptz
-        AND status != 'cancelled'
-          AND is_paid = true
+      WHERE store_id = ${user.store_id}
+        AND created_at >= ${tzStart}::timestamptz AND created_at <= ${tzEnd}::timestamptz
+        AND status != 'cancelled' AND is_paid = true
     `
 
-    // Thu/Chi for the month
-    const startDate = `${year}-${monthPad}-01`
-    const endDate   = `${year}-${monthPad}-${lastDayPad}`
     const thuChi = await sql`
       SELECT
         COALESCE(SUM(CASE WHEN type='thu' THEN amount ELSE 0 END), 0)::numeric as total_thu,
         COALESCE(SUM(CASE WHEN type='chi' THEN amount ELSE 0 END), 0)::numeric as total_chi
       FROM transactions
-      WHERE transaction_date BETWEEN ${startDate} AND ${endDate}
+      WHERE store_id = ${user.store_id}
+        AND transaction_date BETWEEN ${startDate} AND ${endDate}
     `
 
-    // Individual transactions for the month
     const transactions = await sql`
       SELECT t.id, t.type, t.amount::numeric, t.description, t.note, t.transaction_date, u.username
       FROM transactions t
       LEFT JOIN users u ON t.user_id = u.id
-      WHERE t.transaction_date BETWEEN ${startDate} AND ${endDate}
+      WHERE t.store_id = ${user.store_id}
+        AND t.transaction_date BETWEEN ${startDate} AND ${endDate}
       ORDER BY t.transaction_date ASC, t.created_at ASC
     `
 
-    // Top products
     const top_products = await sql`
       SELECT
         oi.product_name,
@@ -67,14 +68,13 @@ export async function GET(req: NextRequest) {
         SUM(oi.subtotal * (1 - COALESCE(o.discount_amount, 0)::float / NULLIF(o.total_amount + COALESCE(o.discount_amount, 0), 0)))::numeric as total_revenue
       FROM order_items oi
       JOIN orders o ON o.id = oi.order_id
-      WHERE o.created_at >= ${tzStart}::timestamptz AND o.created_at <= ${tzEnd}::timestamptz
-        AND o.status != 'cancelled'
-        AND o.is_paid = true
+      WHERE o.store_id = ${user.store_id}
+        AND o.created_at >= ${tzStart}::timestamptz AND o.created_at <= ${tzEnd}::timestamptz
+        AND o.status != 'cancelled' AND o.is_paid = true
       GROUP BY oi.product_name
       ORDER BY total_qty DESC LIMIT 20
     `
 
-    // 6-month trend — go back 5 months from start of current month (VN)
     const trend6Month = month <= 5 ? month + 12 - 5 : month - 5
     const trend6Year  = month <= 5 ? year - 1 : year
     const trend6Start = `${trend6Year}-${String(trend6Month).padStart(2, '0')}-01T00:00:00+07:00`
@@ -84,9 +84,9 @@ export async function GET(req: NextRequest) {
         COALESCE(SUM(total_amount), 0)::numeric as revenue,
         COUNT(*)::int as order_count
       FROM orders
-      WHERE created_at >= ${trend6Start}::timestamptz
-        AND status != 'cancelled'
-          AND is_paid = true
+      WHERE store_id = ${user.store_id}
+        AND created_at >= ${trend6Start}::timestamptz
+        AND status != 'cancelled' AND is_paid = true
       GROUP BY month_key ORDER BY month_key
     `
 
@@ -94,8 +94,9 @@ export async function GET(req: NextRequest) {
       SELECT COALESCE(SUM(oi.quantity),0)::int as total_cups
       FROM order_items oi
       JOIN orders o ON o.id = oi.order_id
-      WHERE o.created_at >= ${tzStart}::timestamptz AND o.created_at <= ${tzEnd}::timestamptz
-        AND o.status != 'cancelled' AND o.is_paid = true
+      WHERE o.store_id = ${user.store_id}
+        AND o.created_at >= ${tzStart}::timestamptz AND o.created_at <= ${tzEnd}::timestamptz
+        AND o.status != 'cancelled'
     `
 
     const totalRevenue = Number(totals[0].total_revenue)

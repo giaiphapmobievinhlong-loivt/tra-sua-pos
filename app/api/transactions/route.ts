@@ -5,14 +5,17 @@ import { getUserFromRequest } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
   try {
+    const user = await getUserFromRequest(req)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const date = req.nextUrl.searchParams.get('date') || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })
-    
+
     const transactions = await sql`
       SELECT t.*, u.username,
         TO_CHAR(t.created_at + interval '7 hours', 'YYYY-MM-DD HH24:MI:SS') as vn_created_at
       FROM transactions t
       LEFT JOIN users u ON t.user_id = u.id
-      WHERE t.transaction_date = ${date}
+      WHERE t.store_id = ${user.store_id} AND t.transaction_date = ${date}
       ORDER BY t.created_at DESC
     `
     return NextResponse.json({ transactions }, {
@@ -32,8 +35,8 @@ export async function POST(req: NextRequest) {
     const { type, amount, description, note, transaction_date } = await req.json()
 
     const transactions = await sql`
-      INSERT INTO transactions (user_id, type, amount, description, note, transaction_date)
-      VALUES (${user.id}, ${type}, ${amount}, ${description}, ${note || ''}, ${transaction_date || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })})
+      INSERT INTO transactions (store_id, user_id, type, amount, description, note, transaction_date)
+      VALUES (${user.store_id}, ${user.id}, ${type}, ${amount}, ${description}, ${note || ''}, ${transaction_date || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })})
       RETURNING *
     `
     return NextResponse.json({ success: true, transaction: transactions[0] })

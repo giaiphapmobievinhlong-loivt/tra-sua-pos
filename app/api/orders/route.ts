@@ -5,6 +5,9 @@ import { getUserFromRequest, generateOrderCode } from "@/lib/auth"
 
 export async function GET(req: NextRequest) {
   try {
+    const user = await getUserFromRequest(req)
+    if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 })
+
     const todayVN = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })
     const date   = req.nextUrl.searchParams.get("date") || todayVN
     const status = req.nextUrl.searchParams.get("status")
@@ -12,37 +15,36 @@ export async function GET(req: NextRequest) {
     const dateStart = `${date}T00:00:00+07:00`
     const dateEnd   = `${date}T23:59:59+07:00`
 
-    // Chạy song song: lấy orders + tất cả items trong ngày cùng lúc
     const [orders, allItemsRaw] = await Promise.all([
       status && status !== "all"
         ? sql`
             SELECT o.*, TO_CHAR(o.created_at + interval '7 hours', 'YYYY-MM-DD HH24:MI:SS') as vn_created_at, u.username
             FROM orders o LEFT JOIN users u ON o.user_id = u.id
-            WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at <= ${dateEnd}::timestamptz
+            WHERE o.store_id = ${user.store_id}
+              AND o.created_at >= ${dateStart}::timestamptz AND o.created_at <= ${dateEnd}::timestamptz
               AND o.status = ${status}
             ORDER BY o.created_at DESC
           `
         : sql`
             SELECT o.*, TO_CHAR(o.created_at + interval '7 hours', 'YYYY-MM-DD HH24:MI:SS') as vn_created_at, u.username
             FROM orders o LEFT JOIN users u ON o.user_id = u.id
-            WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at <= ${dateEnd}::timestamptz
+            WHERE o.store_id = ${user.store_id}
+              AND o.created_at >= ${dateStart}::timestamptz AND o.created_at <= ${dateEnd}::timestamptz
             ORDER BY
               CASE o.status WHEN 'pending' THEN 1 WHEN 'brewing' THEN 2
                 WHEN 'ready' THEN 3 WHEN 'completed' THEN 4 WHEN 'cancelled' THEN 5 ELSE 6
               END, o.created_at DESC
           `,
-      // Lấy toàn bộ items trong ngày (không cần biết order ids trước)
       sql`
         SELECT oi.* FROM order_items oi
         JOIN orders o ON o.id = oi.order_id
-        WHERE o.created_at >= ${dateStart}::timestamptz AND o.created_at <= ${dateEnd}::timestamptz
+        WHERE o.store_id = ${user.store_id}
+          AND o.created_at >= ${dateStart}::timestamptz AND o.created_at <= ${dateEnd}::timestamptz
       `,
     ])
 
-    const allItems = allItemsRaw
-
     const itemsByOrder: Record<number, unknown[]> = {}
-    for (const item of allItems) {
+    for (const item of allItemsRaw) {
       const oid = item.order_id as number
       ;(itemsByOrder[oid] ||= []).push(item)
     }
@@ -71,34 +73,54 @@ export async function POST(req: NextRequest) {
 
     if (!items?.length) return NextResponse.json({ error: "Đơn hàng trống" }, { status: 400 })
 
+    // ── Kiểm tra và cập nhật quota ────────────────────────────────────────
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })
+
+    // Reset nếu sang ngày mới
+    await sql`
+      UPDATE quotas SET orders_used_today = 0, reset_date = ${today}
+      WHERE store_id = ${user.store_id} AND reset_date < ${today}
+    `
+
+    const [quota] = await sql`SELECT plan, daily_limit, orders_used_today FROM quotas WHERE store_id = ${user.store_id}`
+    if (!quota) return NextResponse.json({ error: "Lỗi cấu hình quota" }, { status: 500 })
+
+    if (Number(quota.orders_used_today) >= Number(quota.daily_limit)) {
+      return NextResponse.json({
+        error: `Đã đạt giới hạn ${quota.daily_limit} đơn hôm nay. Vui lòng nâng cấp gói để tạo thêm đơn.`,
+        quota_exceeded: true,
+      }, { status: 403 })
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     const orderCode = generateOrderCode()
 
-    // 1. Fetch product names
     const productIds = items.map((i: { product_id: number }) => i.product_id)
-    const prods = await sql`SELECT id, name FROM products WHERE id = ANY(${productIds})`
+    const prods = await sql`SELECT id, name FROM products WHERE id = ANY(${productIds}) AND store_id = ${user.store_id}`
     const nameMap = Object.fromEntries(prods.map((p) => [p.id, p.name]))
 
     type Item = { product_id: number; quantity: number; unit_price: number; item_note?: string }
 
-    // 2. Insert order
     const rows = await sql`
-      INSERT INTO orders (order_code, user_id, total_amount, discount_amount, discount_name, customer_paid, change_amount, note, status, table_number, is_paid, pay_method)
-      VALUES (${orderCode}, ${user.id}, ${total_amount}, ${discount_amount ?? 0}, ${discount_name || ''}, ${customer_paid ?? 0}, ${change_amount ?? 0},
+      INSERT INTO orders (store_id, order_code, user_id, total_amount, discount_amount, discount_name, customer_paid, change_amount, note, status, table_number, is_paid, pay_method)
+      VALUES (${user.store_id}, ${orderCode}, ${user.id}, ${total_amount}, ${discount_amount ?? 0}, ${discount_name || ''}, ${customer_paid ?? 0}, ${change_amount ?? 0},
               ${note || ""}, ${status || "pending"}, ${table_number ?? null}, ${is_paid ?? false}, ${pay_method ?? null})
       RETURNING *
     `
     const order = rows[0]
 
-    // 3. Insert items in parallel (dùng order.id trực tiếp — không cần subquery)
     await Promise.all(items.map((item: Item) =>
       sql`
-        INSERT INTO order_items (order_id, product_id, product_name, quantity, unit_price, subtotal, item_note)
-        VALUES (${order.id}, ${item.product_id}, ${nameMap[item.product_id] || 'Unknown'},
+        INSERT INTO order_items (store_id, order_id, product_id, product_name, quantity, unit_price, subtotal, item_note)
+        VALUES (${user.store_id}, ${order.id}, ${item.product_id}, ${nameMap[item.product_id] || 'Unknown'},
                 ${item.quantity}, ${item.unit_price}, ${item.quantity * item.unit_price}, ${item.item_note || ''})
       `
     ))
 
-    const orderItems = await sql`SELECT * FROM order_items WHERE order_id = ${order.id}`
+    // Tăng quota đã dùng
+    await sql`UPDATE quotas SET orders_used_today = orders_used_today + 1 WHERE store_id = ${user.store_id}`
+
+    const orderItems = await sql`SELECT * FROM order_items WHERE order_id = ${order.id} AND store_id = ${user.store_id}`
     return NextResponse.json({ success: true, order: { ...order, items: orderItems } })
   } catch (error) {
     console.error("[POST /api/orders]", error)

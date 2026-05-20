@@ -1,16 +1,20 @@
 export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
+import { getUserFromRequest } from '@/lib/auth'
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const user = await getUserFromRequest(req)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const { id: idStr } = await params
     const id = Number(idStr)
     const body = await req.json()
     const { name, price, category_id, image_url, is_active, sort_order } = body
 
     if (Object.keys(body).length === 1 && 'is_active' in body) {
-      await sql`UPDATE products SET is_active = ${is_active} WHERE id = ${id}`
+      await sql`UPDATE products SET is_active = ${is_active} WHERE id = ${id} AND store_id = ${user.store_id}`
     } else {
       await sql`
         UPDATE products SET
@@ -20,7 +24,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           image_url = ${image_url || ''},
           is_active = ${is_active ?? true},
           sort_order = ${sort_order ?? 0}
-        WHERE id = ${id}
+        WHERE id = ${id} AND store_id = ${user.store_id}
       `
     }
     return NextResponse.json({ success: true })
@@ -29,11 +33,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const user = await getUserFromRequest(req)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const { id: idStr } = await params
     const id = Number(idStr)
-    await sql`DELETE FROM products WHERE id = ${id}`
+    await sql`DELETE FROM products WHERE id = ${id} AND store_id = ${user.store_id}`
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 })
