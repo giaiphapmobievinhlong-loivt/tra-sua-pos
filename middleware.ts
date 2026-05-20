@@ -20,6 +20,7 @@ function isPublic(pathname: string) {
     pathname.startsWith('/order') ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/setup') ||
+    pathname.startsWith('/api/migrate') ||
     pathname.startsWith('/api/public') ||
     pathname.startsWith('/api/payments/webhook') ||
     pathname.startsWith('/api/products') ||
