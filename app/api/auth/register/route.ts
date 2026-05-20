@@ -68,6 +68,6 @@ export async function POST(req: NextRequest) {
     return response
   } catch (error) {
     console.error('[POST /api/auth/register]', error)
-    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 })
+    return NextResponse.json({ error: String(error) }, { status: 500 })
   }
 }
