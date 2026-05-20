@@ -105,14 +105,15 @@ export async function GET(req: NextRequest) {
 
     // ── 6. Cập nhật UNIQUE constraints sang store-scoped ────────────────
     // Xóa ràng buộc cũ (global), thêm ràng buộc mới (per-store)
-    await sql`ALTER TABLE users      DROP CONSTRAINT IF EXISTS users_username_key`
-    await sql`ALTER TABLE categories DROP CONSTRAINT IF EXISTS categories_slug_key`
-    await sql`ALTER TABLE settings   DROP CONSTRAINT IF EXISTS settings_key_key`
+    // Dùng try/catch riêng vì PostgreSQL không hỗ trợ ADD CONSTRAINT IF NOT EXISTS
+    try { await sql`ALTER TABLE users      DROP CONSTRAINT IF EXISTS users_username_key` } catch {}
+    try { await sql`ALTER TABLE categories DROP CONSTRAINT IF EXISTS categories_slug_key` } catch {}
+    try { await sql`ALTER TABLE settings   DROP CONSTRAINT IF EXISTS settings_key_key` } catch {}
 
-    await sql`ALTER TABLE users      ADD CONSTRAINT IF NOT EXISTS users_store_username_uq    UNIQUE (store_id, username)`
-    await sql`ALTER TABLE categories ADD CONSTRAINT IF NOT EXISTS categories_store_slug_uq   UNIQUE (store_id, slug)`
-    await sql`ALTER TABLE orders     ADD CONSTRAINT IF NOT EXISTS orders_store_code_uq       UNIQUE (store_id, order_code)`
-    await sql`ALTER TABLE settings   ADD CONSTRAINT IF NOT EXISTS settings_store_key_uq      UNIQUE (store_id, key)`
+    try { await sql`ALTER TABLE users      ADD CONSTRAINT users_store_username_uq  UNIQUE (store_id, username)` } catch {}
+    try { await sql`ALTER TABLE categories ADD CONSTRAINT categories_store_slug_uq UNIQUE (store_id, slug)` } catch {}
+    try { await sql`ALTER TABLE orders     ADD CONSTRAINT orders_store_code_uq     UNIQUE (store_id, order_code)` } catch {}
+    try { await sql`ALTER TABLE settings   ADD CONSTRAINT settings_store_key_uq    UNIQUE (store_id, key)` } catch {}
     log.push('✅ UNIQUE constraints updated')
 
     // ── 7. Seed tài khoản admin cho store #1 (nếu chưa có) ──────────────
