@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Pencil, Trash2, Package, Layers, Users, X, Eye, EyeOff, Tag, Percent, DollarSign, ToggleLeft, ToggleRight, QrCode, Printer, ExternalLink, ChefHat, Boxes, ArrowDownToLine, ArrowUpFromLine, History, AlertTriangle } from 'lucide-react'
+import { Plus, Pencil, Trash2, Package, Layers, Users, X, Eye, EyeOff, Tag, Percent, DollarSign, ToggleLeft, ToggleRight, QrCode, Printer, ExternalLink, ChefHat, Boxes, ArrowDownToLine, ArrowUpFromLine, History, AlertTriangle, Store } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────
 interface Category {
@@ -29,7 +29,7 @@ interface User {
   created_at: string
 }
 
-type Tab = 'products' | 'categories' | 'users' | 'discounts' | 'qr' | 'settings' | 'recipes' | 'inventory'
+type Tab = 'products' | 'categories' | 'users' | 'discounts' | 'qr' | 'settings' | 'recipes' | 'inventory' | 'stores'
 
 // ─── Modal wrapper ────────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -1852,6 +1852,104 @@ function InventoryTab() {
   )
 }
 
+// ─── Stores Tab (chủ hệ thống) ───────────────────────────
+interface StoreRow {
+  id: number; name: string; email: string; created_at: string
+  plan: string; daily_limit: number; orders_used_today: number
+  expires_at: string | null; total_orders: number
+}
+
+function StoresTab() {
+  const [stores, setStores] = useState<StoreRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [forbidden, setForbidden] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/owner/stores')
+      .then(r => { if (r.status === 403) { setForbidden(true); return null } return r.json() })
+      .then(d => { if (d) setStores(d.stores || []) })
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (forbidden) return (
+    <div className="text-center py-16 text-gray-400 text-sm">Chỉ dành cho chủ hệ thống</div>
+  )
+  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Đang tải...</div>
+
+  const paid = stores.filter(s => s.plan === 'paid').length
+  const free = stores.filter(s => s.plan === 'free').length
+
+  return (
+    <div className="space-y-6">
+      {/* Tổng quan */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Tổng cửa hàng', value: stores.length, color: 'text-gray-800' },
+          { label: 'Trả phí', value: paid, color: 'text-green-600' },
+          { label: 'Miễn phí', value: free, color: 'text-orange-500' },
+          { label: 'Tổng đơn hàng', value: stores.reduce((a, s) => a + Number(s.total_orders), 0), color: 'text-blue-600' },
+        ].map(stat => (
+          <div key={stat.label} className="card p-4 text-center">
+            <p className={`text-2xl font-bold ${stat.color}`}>{stat.value.toLocaleString('vi-VN')}</p>
+            <p className="text-xs text-gray-500 mt-1">{stat.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Bảng danh sách */}
+      <div className="card overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-100">
+              <th className="text-left px-4 py-3 font-semibold text-gray-600">ID</th>
+              <th className="text-left px-4 py-3 font-semibold text-gray-600">Cửa hàng</th>
+              <th className="text-left px-4 py-3 font-semibold text-gray-600">Email</th>
+              <th className="text-left px-4 py-3 font-semibold text-gray-600">Gói</th>
+              <th className="text-right px-4 py-3 font-semibold text-gray-600">Đơn hôm nay</th>
+              <th className="text-right px-4 py-3 font-semibold text-gray-600">Tổng đơn</th>
+              <th className="text-left px-4 py-3 font-semibold text-gray-600">Hết hạn</th>
+              <th className="text-left px-4 py-3 font-semibold text-gray-600">Ngày tạo</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {stores.map(s => (
+              <tr key={s.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-4 py-3 text-gray-400 font-mono">#{s.id}</td>
+                <td className="px-4 py-3 font-medium text-gray-800">{s.name}</td>
+                <td className="px-4 py-3 text-gray-500">{s.email || '—'}</td>
+                <td className="px-4 py-3">
+                  <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                    s.plan === 'owner' ? 'bg-orange-100 text-orange-700' :
+                    s.plan === 'paid'  ? 'bg-green-100 text-green-700' :
+                                         'bg-gray-100 text-gray-500'
+                  }`}>
+                    {s.plan === 'owner' ? 'Owner' : s.plan === 'paid' ? 'Trả phí' : 'Miễn phí'}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-right text-gray-700">
+                  {s.orders_used_today} / {s.daily_limit}
+                </td>
+                <td className="px-4 py-3 text-right font-semibold text-gray-800">
+                  {Number(s.total_orders).toLocaleString('vi-VN')}
+                </td>
+                <td className="px-4 py-3 text-gray-500 text-xs">
+                  {s.expires_at ? new Date(s.expires_at).toLocaleDateString('vi-VN') : '—'}
+                </td>
+                <td className="px-4 py-3 text-gray-400 text-xs">
+                  {new Date(s.created_at).toLocaleDateString('vi-VN')}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {stores.length === 0 && (
+          <div className="text-center py-10 text-gray-400 text-sm">Chưa có cửa hàng nào</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'products', label: 'Sản Phẩm', icon: Package },
@@ -1862,6 +1960,7 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'settings', label: 'Cài Đặt', icon: ToggleRight },
   { id: 'recipes', label: 'Công Thức', icon: ChefHat },
   { id: 'inventory', label: 'Tồn Kho', icon: Boxes },
+  { id: 'stores', label: 'Cửa Hàng', icon: Store },
 ]
 
 export default function QuanLyPage() {
@@ -1909,6 +2008,7 @@ export default function QuanLyPage() {
       {tab === 'settings' && <SettingsTab />}
       {tab === 'recipes' && <RecipesTab />}
       {tab === 'inventory' && <InventoryTab />}
+      {tab === 'stores' && <StoresTab />}
     </div>
   )
 }
