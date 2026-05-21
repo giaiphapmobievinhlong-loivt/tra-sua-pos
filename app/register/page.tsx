@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 export default function RegisterPage() {
-  const [form, setForm] = useState({ store_name: '', email: '', password: '', confirm: '' })
+  const [form, setForm] = useState({ store_name: '', username: '', email: '', password: '', confirm: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
@@ -21,6 +21,10 @@ export default function RegisterPage() {
       setError('Mật khẩu xác nhận không khớp')
       return
     }
+    if (!/^[a-zA-Z0-9_]{3,30}$/.test(form.username)) {
+      setError('Tên đăng nhập chỉ gồm chữ, số, dấu _ và từ 3–30 ký tự')
+      return
+    }
 
     setLoading(true)
     try {
@@ -29,6 +33,7 @@ export default function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           store_name: form.store_name,
+          username: form.username.toLowerCase(),
           email: form.email,
           password: form.password,
         }),
@@ -74,7 +79,32 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tên đăng nhập
+              <span className="text-gray-400 font-normal ml-1 text-xs">(dùng để đăng nhập hàng ngày)</span>
+            </label>
+            <input
+              type="text"
+              value={form.username}
+              onChange={e => set('username', e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
+              className="input"
+              placeholder="Ví dụ: trasua_nhà_mèo → trasuanhameo"
+              required
+              minLength={3}
+              maxLength={30}
+            />
+            {form.username && (
+              <p className="text-xs text-gray-400 mt-1">
+                Đăng nhập bằng: <span className="font-semibold text-orange-600">{form.username.toLowerCase()}</span>
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email
+              <span className="text-gray-400 font-normal ml-1 text-xs">(để liên hệ & khôi phục mật khẩu)</span>
+            </label>
             <input
               type="email"
               value={form.email}
