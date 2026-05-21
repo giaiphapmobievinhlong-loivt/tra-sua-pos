@@ -9,6 +9,17 @@ export async function GET(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })
+    const nowISO = new Date().toISOString()
+
+    // Downgrade về free nếu gói trả phí đã hết hạn
+    await sql`
+      UPDATE quotas
+      SET plan = 'free', daily_limit = 10, expires_at = NULL
+      WHERE store_id = ${user.store_id}
+        AND plan = 'paid'
+        AND expires_at IS NOT NULL
+        AND expires_at < ${nowISO}::timestamptz
+    `
 
     // Reset nếu sang ngày mới
     await sql`
