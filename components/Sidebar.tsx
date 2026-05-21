@@ -28,9 +28,9 @@ const ROLE_COLOR: Record<string, string> = {
   admin: 'bg-orange-100 text-orange-700',
 }
 
-interface SidebarProps { username: string; role: string }
+interface SidebarProps { username: string; role: string; storeName: string }
 
-export default function Sidebar({ username, role }: SidebarProps) {
+export default function Sidebar({ username, role, storeName }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -66,7 +66,7 @@ export default function Sidebar({ username, role }: SidebarProps) {
               <span className="text-xl">🧋</span>
             </div>
             <div>
-              <h1 className="font-bold text-orange-700 text-lg leading-tight">Trà Sữa Nhà Mèo</h1>
+              <h1 className="font-bold text-orange-700 text-lg leading-tight">{storeName}</h1>
               <p className="text-xs text-gray-400 truncate">Xin chào, {username}</p>
             </div>
           </div>
@@ -97,7 +97,7 @@ export default function Sidebar({ username, role }: SidebarProps) {
           <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
             <span className="text-base">🧋</span>
           </div>
-          <span className="font-bold text-orange-700">Trà Sữa Nhà Mèo</span>
+          <span className="font-bold text-orange-700">{storeName}</span>
         </div>
         <button onClick={() => setDrawerOpen(true)}
           className="p-2 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors">
@@ -132,7 +132,7 @@ export default function Sidebar({ username, role }: SidebarProps) {
                   <span className="text-lg">🧋</span>
                 </div>
                 <div>
-                  <p className="font-bold text-orange-700">Trà Sữa Nhà Mèo</p>
+                  <p className="font-bold text-orange-700">{storeName}</p>
                   <p className="text-xs text-gray-400">Xin chào, {username}</p>
                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full mt-0.5 inline-block ${ROLE_COLOR[role] || 'bg-gray-100 text-gray-600'}`}>
                     {ROLE_LABEL[role] || role}
