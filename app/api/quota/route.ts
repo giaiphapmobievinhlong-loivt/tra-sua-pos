@@ -12,9 +12,11 @@ export async function GET(req: NextRequest) {
     const nowISO = new Date().toISOString()
 
     // Downgrade về free nếu gói trả phí đã hết hạn
+    const [configRow] = await sql`SELECT value FROM settings WHERE store_id = 1 AND key = 'free_daily_limit'`
+    const freeDailyLimit = configRow ? Number(configRow.value) : 10
     await sql`
       UPDATE quotas
-      SET plan = 'free', daily_limit = 10, expires_at = NULL
+      SET plan = 'free', daily_limit = ${freeDailyLimit}, expires_at = NULL
       WHERE store_id = ${user.store_id}
         AND plan = 'paid'
         AND expires_at IS NOT NULL

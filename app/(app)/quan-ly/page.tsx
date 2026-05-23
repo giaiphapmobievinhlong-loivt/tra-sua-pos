@@ -1863,13 +1863,43 @@ function StoresTab() {
   const [stores, setStores] = useState<StoreRow[]>([])
   const [loading, setLoading] = useState(true)
   const [forbidden, setForbidden] = useState(false)
+  const [freeLimitInput, setFreeLimitInput] = useState('10')
+  const [configSaving, setConfigSaving] = useState(false)
+  const [configSaved, setConfigSaved] = useState(false)
+  const [configError, setConfigError] = useState('')
 
   useEffect(() => {
     fetch('/api/owner/stores')
       .then(r => { if (r.status === 403) { setForbidden(true); return null } return r.json() })
       .then(d => { if (d) setStores(d.stores || []) })
       .finally(() => setLoading(false))
+    fetch('/api/owner/config')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setFreeLimitInput(String(d.free_daily_limit)) })
   }, [])
+
+  async function handleSaveConfig() {
+    const val = Number(freeLimitInput)
+    if (!Number.isInteger(val) || val < 1 || val > 9999) {
+      setConfigError('Nhập số nguyên từ 1 đến 9999')
+      return
+    }
+    setConfigSaving(true)
+    setConfigError('')
+    try {
+      const res = await fetch('/api/owner/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ free_daily_limit: val }),
+      })
+      const d = await res.json()
+      if (!res.ok) { setConfigError(d.error || 'Lỗi lưu'); return }
+      setConfigSaved(true)
+      setTimeout(() => setConfigSaved(false), 2000)
+    } finally {
+      setConfigSaving(false)
+    }
+  }
 
   if (forbidden) return (
     <div className="text-center py-16 text-gray-400 text-sm">Chỉ dành cho chủ hệ thống</div>
@@ -1881,6 +1911,32 @@ function StoresTab() {
 
   return (
     <div className="space-y-6">
+      {/* Cấu hình hệ thống */}
+      <div className="card p-5">
+        <h3 className="font-bold text-gray-800 mb-4">Cấu hình gói miễn phí</h3>
+        <div className="flex items-end gap-3 max-w-sm">
+          <div className="flex-1">
+            <label className="text-sm font-medium text-gray-700 block mb-1.5">Số đơn miễn phí mỗi ngày</label>
+            <input
+              type="number"
+              value={freeLimitInput}
+              onChange={e => setFreeLimitInput(e.target.value)}
+              className="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300"
+              min="1" max="9999" placeholder="10"
+            />
+          </div>
+          <span className="text-sm text-gray-500 pb-2.5 shrink-0">đơn/ngày</span>
+          <button
+            onClick={handleSaveConfig}
+            disabled={configSaving}
+            className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-bold px-4 py-2.5 rounded-xl transition-colors text-sm shrink-0 pb-2.5">
+            {configSaved ? '✓ Đã lưu' : configSaving ? '...' : 'Lưu'}
+          </button>
+        </div>
+        {configError && <p className="text-red-500 text-xs mt-2">{configError}</p>}
+        <p className="text-xs text-gray-400 mt-2">Áp dụng cho cửa hàng mới đăng ký và khi gói trả phí hết hạn.</p>
+      </div>
+
       {/* Tổng quan */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[

@@ -50,10 +50,12 @@ export async function POST(req: NextRequest) {
       ON CONFLICT (store_id, slug) DO NOTHING
     `
 
-    // 4. Tạo quota free: 10 đơn/ngày
+    // 4. Tạo quota free với giới hạn được cấu hình bởi chủ hệ thống
+    const [configRow] = await sql`SELECT value FROM settings WHERE store_id = 1 AND key = 'free_daily_limit'`
+    const freeDailyLimit = configRow ? Number(configRow.value) : 10
     await sql`
       INSERT INTO quotas (store_id, plan, daily_limit, orders_used_today, reset_date)
-      VALUES (${store.id}, 'free', 10, 0, CURRENT_DATE)
+      VALUES (${store.id}, 'free', ${freeDailyLimit}, 0, CURRENT_DATE)
       ON CONFLICT (store_id) DO NOTHING
     `
 
