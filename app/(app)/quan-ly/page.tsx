@@ -809,14 +809,16 @@ const TABLE_LIST = ['1','2','3','4','5','6','7','8','9','10','11','12']
 
 function QrTab() {
   const [baseUrl, setBaseUrl] = useState('')
+  const [storeId, setStoreId] = useState(1)
   const [selected, setSelected] = useState<string | null>(null)
 
   useEffect(() => {
     setBaseUrl(window.location.origin)
+    fetch('/api/quota').then(r => r.json()).then(d => { if (d.store_id) setStoreId(d.store_id) })
   }, [])
 
   function getOrderUrl(table: string) {
-    return `${baseUrl}/order?table=${table}`
+    return `${baseUrl}/order?table=${table}&store=${storeId}`
   }
 
   function printAll() {

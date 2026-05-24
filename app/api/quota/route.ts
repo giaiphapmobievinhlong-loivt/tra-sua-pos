@@ -50,6 +50,7 @@ export async function GET(req: NextRequest) {
     `
 
     return NextResponse.json({
+      store_id: user.store_id,
       plan: quota.plan,
       daily_limit: Number(quota.daily_limit),
       orders_used_today: Number(quota.orders_used_today),

@@ -70,12 +70,13 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const {
-      items, total_amount, discount_amount, discount_name, note,
+      store_id, items, total_amount, discount_amount, discount_name, note,
       table_number, customer_name, customer_phone,
       delivery_address, delivery_fee, order_type
     } = body
 
     if (!items?.length) return NextResponse.json({ error: 'Đơn hàng trống' }, { status: 400 })
+    const storeId = Number(store_id) || 1
 
     if (order_type === 'delivery') {
       if (!delivery_address?.trim()) return NextResponse.json({ error: 'Vui lòng nhập địa chỉ giao hàng' }, { status: 400 })
@@ -86,20 +87,19 @@ export async function POST(req: NextRequest) {
     const orderCode = generateOrderCode()
     const finalTotal = Number(total_amount) + Number(delivery_fee || 0)
 
-    // Fetch product names trước transaction
     const productIds = items.map((i: { product_id: number }) => i.product_id)
-    const prods = await sql`SELECT id, name FROM products WHERE id = ANY(${productIds})`
+    const prods = await sql`SELECT id, name FROM products WHERE id = ANY(${productIds}) AND store_id = ${storeId}`
     const nameMap = Object.fromEntries(prods.map((p) => [p.id, p.name]))
 
     type Item = { product_id: number; quantity: number; unit_price: number; item_note?: string }
 
     const rows = await sql`
       INSERT INTO orders (
-        order_code, user_id, total_amount, discount_amount, discount_name,
+        store_id, order_code, user_id, total_amount, discount_amount, discount_name,
         customer_paid, change_amount, note, status, table_number, is_paid, pay_method,
         source, customer_name, customer_phone, delivery_address, delivery_fee, order_type
       ) VALUES (
-        ${orderCode}, NULL, ${finalTotal}, ${discount_amount ?? 0}, ${discount_name || ''},
+        ${storeId}, ${orderCode}, NULL, ${finalTotal}, ${discount_amount ?? 0}, ${discount_name || ''},
         0, 0, ${note || ''}, 'pending',
         ${order_type === 'delivery' ? null : (table_number ?? null)},
         false, 'transfer',
@@ -111,8 +111,8 @@ export async function POST(req: NextRequest) {
 
     await Promise.all(items.map((item: Item) =>
       sql`
-        INSERT INTO order_items (order_id, product_id, product_name, quantity, unit_price, subtotal, item_note)
-        VALUES (${order.id}, ${item.product_id}, ${nameMap[item.product_id] || 'Unknown'},
+        INSERT INTO order_items (store_id, order_id, product_id, product_name, quantity, unit_price, subtotal, item_note)
+        VALUES (${storeId}, ${order.id}, ${item.product_id}, ${nameMap[item.product_id] || 'Unknown'},
                 ${item.quantity}, ${item.unit_price}, ${item.quantity * item.unit_price}, ${item.item_note || ''})
       `
     ))

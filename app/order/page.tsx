@@ -18,6 +18,8 @@ const ORDER_TYPES: { key: OrderType; icon: string; label: string; desc: string }
 
 export default function OrderPage() {
   const router = useRouter()
+  const [storeId, setStoreId]           = useState(1)
+  const [storeName, setStoreName]       = useState('Cửa hàng')
   const [products, setProducts]         = useState<Product[]>([])
   const [categories, setCategories]     = useState<string[]>([])
   const [activeCategory, setActiveCategory] = useState('all')
@@ -41,19 +43,23 @@ export default function OrderPage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    fetch('/api/products').then(r => r.json()).then(d => {
+    const params = new URLSearchParams(window.location.search)
+    const sid = Number(params.get('store')) || 1
+    setStoreId(sid)
+    const t = params.get('table')
+    if (t) { setTableNumber(t); setTableFromUrl(true); setOrderType('dine_in') }
+
+    fetch(`/api/public/products?store=${sid}`).then(r => r.json()).then(d => {
       setProducts(d.products || [])
+      if (d.store_name) setStoreName(d.store_name)
       const cats = (d.products || [])
         .map((p: Product) => p.category_name)
         .filter((c: string, i: number, a: string[]) => a.indexOf(c) === i)
       setCategories(cats)
     })
-    fetch('/api/public/settings').then(r => r.json()).then(d => {
+    fetch(`/api/public/settings?store=${sid}`).then(r => r.json()).then(d => {
       if (d.delivery_fee) setDeliveryFee(Number(d.delivery_fee))
     })
-    const params = new URLSearchParams(window.location.search)
-    const t = params.get('table')
-    if (t) { setTableNumber(t); setTableFromUrl(true); setOrderType('dine_in') }
   }, [])
 
   const subtotal = cart.reduce((s, i) => s + Number(i.product.price) * i.quantity, 0)
@@ -126,6 +132,7 @@ export default function OrderPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          store_id: storeId,
           items: cart.map(i => ({ product_id: i.product.id, quantity: i.quantity, unit_price: i.product.price, item_note: i.itemNote })),
           total_amount: subtotal,
           delivery_fee: shipping,
@@ -159,7 +166,7 @@ export default function OrderPage() {
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🧋</span>
-            <span style={{ fontFamily: "'Baloo 2', cursive" }} className="text-lg font-bold text-orange-600">Trà Sữa Nhà Mèo</span>
+            <span style={{ fontFamily: "'Baloo 2', cursive" }} className="text-lg font-bold text-orange-600">{storeName}</span>
           </div>
           <div className="flex items-center gap-2">
             <a href="/login" className="text-xs text-gray-400 hover:text-orange-500 transition-colors px-2 py-1 rounded-lg hover:bg-orange-50">
