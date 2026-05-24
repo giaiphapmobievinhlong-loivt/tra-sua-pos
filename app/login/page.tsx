@@ -1,28 +1,44 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [storeEmail, setStoreEmail] = useState('')
+  const [showStoreEmail, setShowStoreEmail] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+  const storeEmailRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (showStoreEmail) storeEmailRef.current?.focus()
+  }, [showStoreEmail])
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
     try {
+      const body: Record<string, string> = { username, password }
+      if (showStoreEmail && storeEmail.trim()) body.store_email = storeEmail.trim()
+
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
+
+      if (res.status === 409 && data.need_store_email) {
+        setShowStoreEmail(true)
+        setError(data.error)
+        return
+      }
+
       if (res.ok) {
-        // Store token in localStorage as fallback for cookie issues
         if (data.token) localStorage.setItem('auth_token', data.token)
         router.push('/ban-hang')
         router.refresh()
@@ -72,7 +88,28 @@ export default function LoginPage() {
             />
           </div>
 
-          {error && (
+          {showStoreEmail && (
+            <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 space-y-3">
+              <p className="text-sm text-orange-700 font-medium">
+                Tên đăng nhập này xuất hiện ở nhiều cửa hàng.<br />
+                Nhập email đăng ký cửa hàng của bạn để xác định.
+              </p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email cửa hàng</label>
+                <input
+                  ref={storeEmailRef}
+                  type="email"
+                  value={storeEmail}
+                  onChange={e => setStoreEmail(e.target.value)}
+                  className="input"
+                  placeholder="email@cuahang.com"
+                  required
+                />
+              </div>
+            </div>
+          )}
+
+          {error && !showStoreEmail && (
             <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
               {error}
             </div>
