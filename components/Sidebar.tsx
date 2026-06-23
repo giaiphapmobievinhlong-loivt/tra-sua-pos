@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { ShoppingCart, DollarSign, ClipboardList, BarChart2, Settings, LogOut, Menu, X, Bike, TrendingDown, CreditCard } from 'lucide-react'
+import { ShoppingCart, DollarSign, ClipboardList, BarChart2, Settings, LogOut, Menu, X, Bike } from 'lucide-react'
 
 // ── Role-based nav config ─────────────────────────────────────
 const ALL_NAV = [
@@ -11,8 +11,6 @@ const ALL_NAV = [
   { href: '/don-hang',  label: 'Đơn Hàng',  icon: ClipboardList, roles: ['staff', 'manager', 'admin'] },
   { href: '/giao-hang', label: 'Giao Hàng', icon: Bike,          roles: ['staff', 'manager', 'admin'] },
   { href: '/bao-cao',  label: 'Báo Cáo',  icon: BarChart2,     roles: ['manager', 'admin'] },
-  { href: '/chi-phi',  label: 'Chi Phí',  icon: TrendingDown,  roles: ['manager', 'admin'] },
-  { href: '/billing',  label: 'Gói Dùng',  icon: CreditCard,   roles: ['admin'] },
   { href: '/quan-ly',  label: 'Quản Lý',  icon: Settings,      roles: ['admin'] },
 ]
 

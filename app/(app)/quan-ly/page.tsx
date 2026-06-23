@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
-import { Plus, Pencil, Trash2, Package, Layers, Users, X, Eye, EyeOff, Tag, Percent, DollarSign, ToggleLeft, ToggleRight, QrCode, Printer, ExternalLink, ChefHat, Boxes, ArrowDownToLine, ArrowUpFromLine, History, AlertTriangle, Store } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Plus, Pencil, Trash2, Package, Layers, Users, X, Eye, EyeOff, Tag, Percent, DollarSign, ToggleLeft, ToggleRight, QrCode, Printer, ExternalLink, ChefHat, Boxes, ArrowDownToLine, ArrowUpFromLine, History, AlertTriangle, Store, Check, ChevronRight, Download, CreditCard, Zap, CheckCircle, Clock, AlertCircle, Loader2, Copy, TrendingDown } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────
 interface Category {
@@ -29,7 +29,7 @@ interface User {
   created_at: string
 }
 
-type Tab = 'products' | 'categories' | 'users' | 'discounts' | 'qr' | 'settings' | 'recipes' | 'inventory' | 'stores'
+type Tab = 'products' | 'categories' | 'users' | 'discounts' | 'qr' | 'settings' | 'recipes' | 'inventory' | 'stores' | 'cost' | 'billing'
 
 // ─── Modal wrapper ────────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -1017,74 +1017,136 @@ function RecipesTab() {
 
   const congThucCafe = [
     {
-      title: 'Bạc Xỉu', emoji: '🥛', price: '', color: 'border-blue-200',
-      headerBg: 'bg-blue-400', tagBg: 'bg-blue-100 text-blue-700',
-      note: 'Dùng cây tạo bọt đánh café trước khi cho vào ly',
+      title: 'Cà Phê Đen', emoji: '☕', price: '15K', color: 'border-stone-300',
+      headerBg: 'bg-stone-700', tagBg: 'bg-stone-100 text-stone-700',
+      note: 'Cho đá vào ly trước khi rót',
       items: [
-        { label: 'Sữa tươi không đường', value: '50ml' },
+        { label: 'Cốt cà phê', value: '50ml' },
+        { label: 'Siro đường', value: '20ml' },
+      ]
+    },
+    {
+      title: 'Cà Phê Sữa', emoji: '☕', price: '18K', color: 'border-amber-300',
+      headerBg: 'bg-amber-600', tagBg: 'bg-amber-100 text-amber-700',
+      note: 'Cho đá vào ly, khuấy nhẹ',
+      items: [
+        { label: 'Cốt cà phê', value: '50ml' },
+        { label: 'Sữa đặc', value: '25ml' },
+      ]
+    },
+    {
+      title: 'Bạc Xỉu', emoji: '🥛', price: '20K', color: 'border-blue-200',
+      headerBg: 'bg-blue-400', tagBg: 'bg-blue-100 text-blue-700',
+      note: 'Đánh cốt cà phê tạo bông trước khi rưới lên trên',
+      items: [
+        { label: 'Sữa tươi', value: '50ml' },
         { label: 'Sữa đặc', value: '30ml' },
         { label: 'Rich lùn', value: '10ml' },
-        { label: 'Khuấy đều hỗn hợp', value: '—' },
-        { label: 'Đá', value: 'Lưng cổ ly' },
-        { label: 'Cafe đánh bông bọt', value: '30ml (dùng cây tạo bọt)' },
+        { label: 'Cốt cà phê đánh bông', value: '30ml' },
       ]
     },
     {
-      title: 'Cafe Đen', emoji: '☕', price: '', color: 'border-stone-300',
-      headerBg: 'bg-stone-700', tagBg: 'bg-stone-100 text-stone-700',
-      note: 'Mang đi: cho đá riêng',
+      title: 'Sữa Tươi Cà Phê', emoji: '🥛', price: '20K', color: 'border-orange-200',
+      headerBg: 'bg-orange-400', tagBg: 'bg-orange-100 text-orange-700',
+      note: 'Cốt cà phê chỉ đánh hơi có bọt nhẹ (không bông hoàn toàn)',
       items: [
-        { label: 'Cafe đen', value: '45ml' },
-        { label: 'Siro đường', value: '20ml' },
-        { label: 'Đá', value: 'Cho vào ly, khuấy nhẹ' },
+        { label: 'Sữa tươi', value: '50ml' },
+        { label: 'Sữa đặc', value: '30ml' },
+        { label: 'Rich lùn', value: '10ml' },
+        { label: 'Cốt cà phê hơi đánh bọt', value: '30ml' },
       ]
     },
     {
-      title: 'Cafe Sữa', emoji: '☕', price: '', color: 'border-amber-300',
-      headerBg: 'bg-amber-600', tagBg: 'bg-amber-100 text-amber-700',
-      note: 'Mang đi: cho đá riêng',
+      title: 'Cà Phê Sữa Dừa', emoji: '🥥', price: '22K', color: 'border-green-200',
+      headerBg: 'bg-green-500', tagBg: 'bg-green-100 text-green-700',
+      note: 'Đánh cốt cà phê tạo bọt trước khi rưới lên mặt ly',
       items: [
-        { label: 'Cafe đen', value: '50ml' },
+        { label: 'Sữa tươi', value: '50ml' },
+        { label: 'Sữa đặc', value: '30ml' },
+        { label: 'Sữa dừa Nhất Hương', value: '40ml' },
+        { label: 'Cốt cà phê đánh bọt', value: '30ml' },
+      ]
+    },
+    {
+      title: 'Cà Phê Muối', emoji: '🧂', price: '18K', color: 'border-teal-300',
+      headerBg: 'bg-teal-500', tagBg: 'bg-teal-100 text-teal-700',
+      note: 'Lắc đều cà phê + sữa đặc trước, rưới kem muối lên trên, rắc bột cacao trang trí',
+      items: [
         { label: 'Sữa đặc', value: '25ml' },
-        { label: 'Đá', value: 'Cho vào ly, khuấy nhẹ' },
+        { label: 'Cốt cà phê', value: '50ml (lắc đều cùng sữa đặc)' },
+        { label: 'Kem muối', value: '1,5 vá' },
+        { label: 'Bột cacao', value: 'Rắc trang trí' },
       ]
     },
     {
-      title: 'Nâu Lắc', emoji: '🧊', price: '', color: 'border-orange-300',
-      headerBg: 'bg-orange-500', tagBg: 'bg-orange-100 text-orange-700',
-      note: 'Bản chất giống Cafe Sữa — miền Bắc gọi là Nâu Lắc',
-      items: [
-        { label: 'Sữa đặc', value: '30ml (cho vào ly trước)' },
-        { label: 'Đá bi', value: 'Cho vào ly để lắc' },
-        { label: 'Cafe đen', value: '45ml' },
-        { label: 'Lắc đều', value: 'Đổ ra ly là xong' },
-      ]
-    },
-    {
-      title: 'Cafe Kem Buôn Mê', emoji: '🍦', price: '', color: 'border-yellow-300',
+      title: 'Cà Phê Kem Dẻo Buôn Mê', emoji: '🍦', price: '25K', color: 'border-yellow-300',
       headerBg: 'bg-yellow-500', tagBg: 'bg-yellow-100 text-yellow-700',
-      note: 'Rắc bột cacao lên kem sau cùng',
+      note: 'Rưới kem dẻo Buôn Mê lên trên cùng',
       items: [
         { label: 'Sữa đặc', value: '25ml' },
-        { label: 'Cốt cafe', value: '50ml' },
-        { label: 'Khuấy đều, cho đá', value: 'Lưng ly' },
-        { label: 'Kem Buôn Mê', value: '1 vá' },
-        { label: 'Bột cacao', value: 'Rắc nhẹ lên trên' },
+        { label: 'Cốt cà phê', value: '50ml' },
+        { label: 'Kem dẻo Buôn Mê', value: '1,5 vá' },
+      ]
+    },
+    {
+      title: 'Matcha Latte', emoji: '🍵', price: '22K / 28K', color: 'border-green-300',
+      headerBg: 'bg-green-600', tagBg: 'bg-green-100 text-green-700',
+      note: 'Đánh bột matcha với 50ml nước nóng ~80°C thật nhuyễn rồi rưới vào ly sữa có đá',
+      items: [
+        { label: 'Sữa tươi (S/L)', value: '110ml / 180ml' },
+        { label: 'Sữa đặc (S/L)', value: '30ml / 50ml' },
+        { label: 'Đường (S/L)', value: '10ml / 20ml' },
+        { label: 'Bột matcha (S/L)', value: '3–4gr / 5–6gr' },
+        { label: 'Nước nóng (~80°C)', value: '50ml — đánh tan matcha trước' },
+      ]
+    },
+    {
+      title: 'Khoai Môn Latte', emoji: '🟣', price: '22K / 28K', color: 'border-purple-300',
+      headerBg: 'bg-purple-500', tagBg: 'bg-purple-100 text-purple-700',
+      note: 'Đánh bột khoai môn với nước nóng cho tan hẳn trước khi cho vào ly',
+      items: [
+        { label: 'Sữa tươi (S/L)', value: '100ml / 180ml' },
+        { label: 'Sữa đặc (S/L)', value: '20ml / 30ml' },
+        { label: 'Bột khoai môn (S/L)', value: '15gr / 20gr' },
+        { label: 'Nước nóng', value: '50ml — đánh tan bột trước' },
+      ]
+    },
+    {
+      title: 'Cacao Latte', emoji: '🍫', price: '22K / 28K', color: 'border-stone-400',
+      headerBg: 'bg-stone-600', tagBg: 'bg-stone-100 text-stone-700',
+      note: 'Đánh bột cacao với nước nóng cho tan hẳn trước',
+      items: [
+        { label: 'Sữa tươi (S/L)', value: '100ml / 180ml' },
+        { label: 'Sữa đặc (S/L)', value: '30ml / 50ml' },
+        { label: 'Bột cacao (S/L)', value: '10–15gr / 15–20gr' },
+        { label: 'Nước nóng', value: '50ml — đánh tan bột trước' },
+      ]
+    },
+    {
+      title: 'Phindi Hạnh Nhân', emoji: '🌰', price: '25K', color: 'border-amber-400',
+      headerBg: 'bg-amber-700', tagBg: 'bg-amber-100 text-amber-800',
+      note: 'Đánh cốt cà phê tạo bông rồi rưới lên trên, thêm thạch cà phê',
+      items: [
+        { label: 'Sữa đặc', value: '10ml' },
+        { label: 'Siro hạt phỉ', value: '20ml' },
+        { label: 'Sữa tươi', value: '80ml' },
+        { label: 'Cốt cà phê đánh bông', value: '30ml' },
+        { label: 'Thạch cà phê', value: '1 vá' },
       ]
     },
   ]
 
   const nenTra = [
     {
-      title: 'Nền Trà Cốt Tắc',
+      title: 'Cốt Trà (Take Away)',
       emoji: '🍋',
       color: 'bg-yellow-50 border-yellow-200',
       headerColor: 'bg-yellow-500',
       steps: [
-        { step: 1, title: 'Chuẩn bị trà', items: ['35g Lục trà Lài', '5g Trà đen Novia', '1.2 lít nước nóng 80–85°C'] },
-        { step: 2, title: 'Ủ trà', items: ['Tráng trà 5–10ml trước', 'Cho 1.2 lít nước nóng vào', 'Ủ 12–15 phút đến khi ra hết màu', 'Vớt trà ra'] },
-        { step: 3, title: 'Thêm nguyên liệu', items: ['Đường: 150g', 'Thêm 2 súc đá → đạt 2 lít', 'Sốc lên để giữ vị trà'] },
-        { step: 4, title: 'Bảo quản', items: ['Để tủ lạnh 4–6 tiếng', 'Đậy nắp kín'] },
+        { step: 1, title: 'Nguyên liệu', items: ['35gr lục trà', '5gr trà đen Novia', '150gr đường', '1gr muối'] },
+        { step: 2, title: 'Ủ trà', items: ['Lấy 1,6 lít nước sôi', 'Ủ trong 15 phút'] },
+        { step: 3, title: 'Hoàn thiện', items: ['Thêm đường + muối vào', '2 xúc đá sốc nhiệt', 'Khuấy đều cho tan đường'] },
+        { step: 4, title: 'Bảo quản', items: ['Để tủ lạnh', 'Đậy nắp kín'] },
       ]
     },
     {
@@ -1095,8 +1157,20 @@ function RecipesTab() {
       steps: [
         { step: 1, title: 'Chuẩn bị trà', items: ['60g Trà đen Hoàng Gia', '40g Trà nguyên lá Novia', '2.1 lít nước sôi ~100°C'] },
         { step: 2, title: 'Ủ trà', items: ['Cho nước sôi vào', 'Ủ 25 phút'] },
-        { step: 3, title: 'Thêm nguyên liệu (theo thứ tự)', items: ['① Bột kem béo: 200g', '② Sữa đặc Ngôi Sao PN: 320ml', '③ Đường đen:320g', '④ Rich lùn: 100ml (tăng độ béo ngậy)', '⑤ Sốc nhiệt 2 súc đá'] },
+        { step: 3, title: 'Thêm nguyên liệu (theo thứ tự)', items: ['① Bột kem béo: 200g', '② Sữa đặc Ngôi Sao PN: 320ml', '③ Đường đen: 320g', '④ Rich lùn: 100ml (tăng độ béo ngậy)', '⑤ Sốc nhiệt 2 súc đá'] },
         { step: 4, title: 'Bảo quản', items: ['Ủ tủ lạnh 7–8 tiếng', 'Đậy nắp kín'] },
+      ]
+    },
+    {
+      title: 'Cốt Cà Phê (Ủ Phin)',
+      emoji: '☕',
+      color: 'bg-stone-50 border-stone-300',
+      headerColor: 'bg-stone-700',
+      steps: [
+        { step: 1, title: 'Chuẩn bị phin', items: ['200gr bột cà phê cho vào phin', '100ml nước sôi vào đáy nồi', '100ml nước sôi để nổi lên trên'] },
+        { step: 2, title: 'Ủ lần 1', items: ['Đợi 20 phút cho cà phê nở', 'Lấy 200ml nước nóng đổ vào lần 1'] },
+        { step: 3, title: 'Ủ lần 2', items: ['Sau 20 phút tiếp theo', 'Lấy 200ml nước nóng đổ lần 2', 'Tổng thu được ~400ml cốt cà phê'] },
+        { step: 4, title: 'Bảo quản', items: ['Dùng trong ngày', 'Để tủ lạnh nếu chưa dùng'] },
       ]
     },
   ]
@@ -1105,47 +1179,56 @@ function RecipesTab() {
     {
       title: 'Trà Tắc', price: '10K', size: '700ml', emoji: '🍋',
       color: 'border-yellow-300', headerBg: 'bg-yellow-400', tagBg: 'bg-yellow-100 text-yellow-700',
-      note: 'Lắc đều, decor lát tắc',
+      note: 'Lắc đều, trang trí thêm lát tắc',
       items: [
-        { label: 'Ly', value: '700ml' },
         { label: 'Trà', value: '200ml' },
-        { label: 'Tắc', value: '20ml (1 trái lớn hoặc 1.5 trái nhỏ)' },
-        { label: 'Đường', value: '45ml' },
+        { label: 'Tắc', value: '2 trái' },
+        { label: 'Đường', value: '50–60ml' },
       ]
     },
     {
       title: 'Trà Tắc Xí Muội', price: '15K', size: '700ml', emoji: '🍊',
       color: 'border-orange-300', headerBg: 'bg-orange-400', tagBg: 'bg-orange-100 text-orange-700',
-      note: 'Đổ hết nước và đá ra trước, xí muội trang trí ở trên',
+      note: 'Xí muội trang trí bên trên sau cùng',
       items: [
-        { label: 'Trà', value: '180ml' },
-        { label: 'Sốt tắc xí muội', value: '50g (1 muỗng đen)' },
-        { label: 'Đường', value: '45ml' },
-        { label: 'Tắc', value: 'Nửa hoặc 1 trái' },
-        { label: 'Đá', value: 'Cho đá vào lắc đều' },
+        { label: 'Trà', value: '200ml' },
+        { label: 'Xí muội', value: '1 muỗng 5' },
+        { label: 'Đường', value: '30ml (hoặc 50ml)' },
+        { label: 'Tắc', value: '1 trái' },
       ]
     },
     {
       title: 'Trà Me', price: '15K', size: '700ml', emoji: '🟤',
-      color: 'border-brown-300', headerBg: 'bg-stone-500', tagBg: 'bg-stone-100 text-stone-700',
-      note: 'Thêm đậu phộng',
+      color: 'border-stone-300', headerBg: 'bg-stone-500', tagBg: 'bg-stone-100 text-stone-700',
+      note: 'Xốc đều trước khi rót',
       items: [
-        { label: 'Trà', value: '150ml' },
-        { label: 'Me', value: '2 muỗng me (màu đen)' },
-        { label: 'Siro đường', value: '20–45ml' },
-        { label: 'Tắc', value: '½ trái' },
-        { label: 'Đá', value: 'Xốc đều' },
+        { label: 'Trà', value: '200ml' },
+        { label: 'Me', value: '1,5 muỗng' },
+        { label: 'Đường', value: '30ml (hoặc 50ml)' },
+        { label: 'Tắc', value: '1 trái' },
+      ]
+    },
+    {
+      title: 'Hồng Trà Sốt Tắc', price: '15K', size: '700ml', emoji: '🌸',
+      color: 'border-pink-300', headerBg: 'bg-pink-500', tagBg: 'bg-pink-100 text-pink-700',
+      note: 'Rưới sốt tắc lên trên cùng sau khi có đá',
+      items: [
+        { label: 'Cốt hồng trà', value: '200ml' },
+        { label: 'Đường', value: '30ml' },
+        { label: 'Tắc', value: '2 trái' },
+        { label: 'Trân châu 3q', value: '1 vá' },
+        { label: 'Sốt tắc', value: '1 vá' },
       ]
     },
     {
       title: 'Trà Dâu', price: '20K', size: '500ml / 700ml', emoji: '🍓',
       color: 'border-pink-300', headerBg: 'bg-pink-400', tagBg: 'bg-pink-100 text-pink-700',
-      note: 'Decor thêm dâu ngâm',
+      note: 'Trang trí thêm dâu ngâm',
       items: [
         { label: 'Trà (S/L)', value: '110ml / 150–170ml' },
         { label: 'Mứt dâu (S/L)', value: '25ml / 35ml' },
         { label: 'Đường (S/L)', value: '25ml / 25ml' },
-        { label: 'Tắc', value: '1.5 trái hoặc 1 trái to' },
+        { label: 'Tắc', value: '1,5 trái hoặc 1 trái to' },
         { label: 'Đá', value: 'Lắc đều' },
       ]
     },
@@ -1158,19 +1241,6 @@ function RecipesTab() {
         { label: 'Trà sữa', value: 'Đổ vào khoảng 7 phần' },
         { label: 'Trân châu', value: '1 vá' },
         { label: 'Pudding trứng', value: '4–5 cục' },
-      ]
-    },
-    {
-      title: 'Matcha Latte', price: '28K/32K', size: '500ml / 700ml', emoji: '🍵',
-      color: 'border-green-300', headerBg: 'bg-green-500', tagBg: 'bg-green-100 text-green-700',
-      note: 'Đánh matcha thật nhuyễn rồi rưới lên ly đá',
-      items: [
-        { label: 'Sữa tươi (S/L)', value: '110ml / 170ml' },
-        { label: 'Sữa đặc (S/L)', value: '30ml / 50ml' },
-        { label: 'Máy đánh cafe', value: 'Mở mức mạnh nhất' },
-        { label: 'Đá', value: 'Cho vào gần đầy ly' },
-        { label: 'Bột matcha', value: '5g (1 muỗng gỗ)' },
-        { label: 'Nước ấm', value: '~80°C, đánh thật nhuyễn' },
       ]
     },
   ]
@@ -1273,6 +1343,147 @@ function RecipesTab() {
               <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-2.5 flex items-start gap-2">
                 <span className="text-orange-500 shrink-0">📝</span>
                 <p className="text-sm text-orange-700 font-medium">Khuấy đều tay khi đun để tránh vón cục. Đổ ra khuôn, để nguội rồi cắt miếng.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Kem Muối */}
+          <div className="border-2 border-blue-300 rounded-2xl overflow-hidden">
+            <div className="bg-blue-400 px-4 py-3 flex items-center gap-2">
+              <span className="text-2xl">🧂</span>
+              <div>
+                <h3 className="font-bold text-white text-base">Kem Muối</h3>
+                <p className="text-white/80 text-xs">Dùng 2–3 ngày</p>
+              </div>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="bg-white rounded-xl p-3 shadow-sm">
+                <p className="font-bold text-gray-700 text-sm mb-2 flex items-center gap-1.5">
+                  <span className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs font-black flex items-center justify-center">1</span>
+                  Nguyên liệu
+                </p>
+                <ul className="space-y-1.5">
+                  {[
+                    '200ml sữa tươi',
+                    '8–10gr muối hồng',
+                    '200ml rich cao',
+                    '1 hộp rich lùn',
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-center bg-blue-50 rounded-lg px-3 py-2">
+                      <span className="text-sm text-gray-700 font-medium">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-2.5 flex items-start gap-2">
+                <span className="text-orange-500 shrink-0">📝</span>
+                <p className="text-sm text-orange-700 font-medium">Đánh máy tốc độ cao 5 phút, sau đó thấp 3 phút.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Kem Dẻo Buôn Mê */}
+          <div className="border-2 border-amber-300 rounded-2xl overflow-hidden">
+            <div className="bg-amber-500 px-4 py-3 flex items-center gap-2">
+              <span className="text-2xl">🍦</span>
+              <div>
+                <h3 className="font-bold text-white text-base">Kem Dẻo Buôn Mê</h3>
+                <p className="text-white/80 text-xs">Dùng 10 ngày</p>
+              </div>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="bg-white rounded-xl p-3 shadow-sm">
+                <p className="font-bold text-gray-700 text-sm mb-2 flex items-center gap-1.5">
+                  <span className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs font-black flex items-center justify-center">1</span>
+                  Nguyên liệu
+                </p>
+                <ul className="space-y-1.5">
+                  {[
+                    '200ml rich lùn',
+                    '80ml sữa đặc',
+                    '50gr frappe laave',
+                    '50ml cốt cà phê',
+                    '10gr bột cacao',
+                    '30ml siro caramel',
+                    '1gr muối hồng',
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-center bg-amber-50 rounded-lg px-3 py-2">
+                      <span className="text-sm text-gray-700 font-medium">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-2.5 flex items-start gap-2">
+                <span className="text-orange-500 shrink-0">📝</span>
+                <p className="text-sm text-orange-700 font-medium">Đánh máy 5–6 phút cho đến khi kem dẻo mịn.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Thạch Cà Phê */}
+          <div className="border-2 border-stone-300 rounded-2xl overflow-hidden">
+            <div className="bg-stone-600 px-4 py-3 flex items-center gap-2">
+              <span className="text-2xl">☕</span>
+              <div>
+                <h3 className="font-bold text-white text-base">Thạch Cà Phê</h3>
+                <p className="text-white/80 text-xs">Bảo quản 3–4 ngày</p>
+              </div>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="bg-white rounded-xl p-3 shadow-sm">
+                <p className="font-bold text-gray-700 text-sm mb-2 flex items-center gap-1.5">
+                  <span className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs font-black flex items-center justify-center">1</span>
+                  Nguyên liệu
+                </p>
+                <ul className="space-y-1.5">
+                  {[
+                    '160gr đường',
+                    '12gr rau câu dẻo',
+                    '1,3 lít nước sôi',
+                    '15ml cốt cà phê',
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-center bg-stone-50 rounded-lg px-3 py-2">
+                      <span className="text-sm text-gray-700 font-medium">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-2.5 flex items-start gap-2">
+                <span className="text-orange-500 shrink-0">📝</span>
+                <p className="text-sm text-orange-700 font-medium">Hòa tan đường + rau câu vào nước sôi, khuấy đều rồi thêm cốt cà phê. Đổ ra khay, để nguội cắt miếng.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Sốt Tắc */}
+          <div className="border-2 border-yellow-300 rounded-2xl overflow-hidden">
+            <div className="bg-yellow-500 px-4 py-3 flex items-center gap-2">
+              <span className="text-2xl">🍋</span>
+              <div>
+                <h3 className="font-bold text-white text-base">Sốt Tắc</h3>
+                <p className="text-white/80 text-xs">Dùng 3–4 ngày</p>
+              </div>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="bg-white rounded-xl p-3 shadow-sm">
+                <p className="font-bold text-gray-700 text-sm mb-2 flex items-center gap-1.5">
+                  <span className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs font-black flex items-center justify-center">1</span>
+                  Nguyên liệu
+                </p>
+                <ul className="space-y-1.5">
+                  {[
+                    '300ml cốt nước tắc',
+                    '700gr đường',
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-center bg-yellow-50 rounded-lg px-3 py-2">
+                      <span className="text-sm text-gray-700 font-medium">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-2.5 flex items-start gap-2">
+                <span className="text-orange-500 shrink-0">📝</span>
+                <p className="text-sm text-orange-700 font-medium">Đun sôi cùng nhau, khuấy đều cho đến khi đường tan hoàn toàn. Để nguội, bảo quản lạnh.</p>
               </div>
             </div>
           </div>
@@ -2008,6 +2219,552 @@ function StoresTab() {
   )
 }
 
+// ─── Cost Tab ─────────────────────────────────────────────
+interface CostProduct {
+  id: number; name: string; price: number
+  category_name: string; category_slug: string
+  cost_per_cup: number; ingredient_count: number
+}
+interface CostCategory { id: number; name: string; slug: string }
+interface CostIngredient {
+  material_id: number; quantity_per_cup: number
+  material_name: string; unit: string
+  price_per_unit: number; price_note: string; ingredient_cost: number
+}
+interface EditingPrice { material_id: number; value: string; note: string }
+
+function fmtCost(n: number) { return n.toLocaleString('vi-VN') + 'đ' }
+
+function MarginBadge({ price, cost }: { price: number; cost: number }) {
+  const pct = price > 0 ? Math.round(((price - cost) / price) * 100) : 0
+  const color = cost === 0 ? 'bg-gray-100 text-gray-400' : pct >= 60 ? 'bg-green-100 text-green-700' : pct >= 40 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+  return <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${color}`}>{cost === 0 ? 'Chưa có giá' : `${pct}% lãi`}</span>
+}
+
+function CostProductCard({ product, onClick }: { product: CostProduct; onClick: () => void }) {
+  const margin = product.price - product.cost_per_cup
+  return (
+    <button onClick={onClick} className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-4 text-left hover:shadow-md hover:border-orange-200 transition-all group">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-gray-800 text-sm leading-tight truncate">{product.name}</p>
+          <div className="mt-1"><MarginBadge price={product.price} cost={product.cost_per_cup} /></div>
+        </div>
+        <ChevronRight size={16} className="text-gray-300 group-hover:text-orange-400 shrink-0 mt-1 transition-colors" />
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+        <div className="bg-orange-50 rounded-xl py-2">
+          <p className="text-[10px] text-orange-400 font-medium uppercase tracking-wide">Giá bán</p>
+          <p className="text-sm font-bold text-orange-700">{fmtCost(product.price)}</p>
+        </div>
+        <div className="bg-red-50 rounded-xl py-2">
+          <p className="text-[10px] text-red-400 font-medium uppercase tracking-wide">Cost</p>
+          <p className="text-sm font-bold text-red-600">{product.cost_per_cup > 0 ? fmtCost(Math.round(product.cost_per_cup)) : '—'}</p>
+        </div>
+        <div className="bg-green-50 rounded-xl py-2">
+          <p className="text-[10px] text-green-500 font-medium uppercase tracking-wide">Lãi/ly</p>
+          <p className="text-sm font-bold text-green-700">{product.cost_per_cup > 0 ? fmtCost(Math.round(margin)) : '—'}</p>
+        </div>
+      </div>
+      {product.ingredient_count === 0 && <p className="mt-2 text-xs text-gray-400 text-center">Chưa có công thức</p>}
+    </button>
+  )
+}
+
+function CostDetailModal({ product, onClose, onUpdate }: { product: CostProduct; onClose: () => void; onUpdate: () => void }) {
+  const [ingredients, setIngredients] = useState<CostIngredient[]>([])
+  const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState<EditingPrice | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const r = await fetch(`/api/cost/detail/${product.id}`)
+    const d = await r.json()
+    setIngredients(d.ingredients || [])
+    setLoading(false)
+  }, [product.id])
+
+  useEffect(() => { load() }, [load])
+
+  const totalCost = ingredients.reduce((s, i) => s + i.ingredient_cost, 0)
+  const margin = product.price - totalCost
+
+  async function savePrice() {
+    if (!editing) return
+    setSaving(true)
+    await fetch(`/api/cost/materials/${editing.material_id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ price_per_unit: Number(editing.value) || 0, price_note: editing.note }),
+    })
+    setSaving(false)
+    setEditing(null)
+    await load()
+    onUpdate()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg max-h-[90vh] flex flex-col shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+          <div>
+            <h2 className="font-bold text-gray-800 text-base">{product.name}</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Chi tiết nguyên liệu & chi phí</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 text-gray-400"><X size={20} /></button>
+        </div>
+        <div className="grid grid-cols-3 divide-x divide-gray-100 bg-gray-50">
+          <div className="py-3 px-4 text-center">
+            <p className="text-[10px] text-gray-400 uppercase tracking-wide">Giá bán</p>
+            <p className="text-base font-bold text-orange-600">{fmtCost(product.price)}</p>
+          </div>
+          <div className="py-3 px-4 text-center">
+            <p className="text-[10px] text-gray-400 uppercase tracking-wide">Cost</p>
+            <p className="text-base font-bold text-red-500">{fmtCost(Math.round(totalCost))}</p>
+          </div>
+          <div className="py-3 px-4 text-center">
+            <p className="text-[10px] text-gray-400 uppercase tracking-wide">Lãi/ly</p>
+            <p className={`text-base font-bold ${margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmtCost(Math.round(margin))}</p>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {loading ? (
+            <div className="py-8 text-center text-gray-400 text-sm">Đang tải...</div>
+          ) : ingredients.length === 0 ? (
+            <div className="py-8 text-center text-gray-400 text-sm">Chưa có công thức nguyên liệu</div>
+          ) : ingredients.map(ing => {
+            const isEditing = editing?.material_id === ing.material_id
+            return (
+              <div key={ing.material_id} className="bg-gray-50 rounded-2xl p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-800 text-sm">
+                      {ing.material_name}
+                      <span className="text-gray-400 font-normal ml-1 text-xs">({ing.quantity_per_cup}{ing.unit})</span>
+                    </p>
+                    {isEditing ? (
+                      <div className="mt-2 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500 shrink-0">Giá/đơn vị:</span>
+                          <input type="number" value={editing.value} onChange={e => setEditing({ ...editing, value: e.target.value })}
+                            className="flex-1 border border-orange-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-orange-400" placeholder="VD: 55000" autoFocus />
+                          <span className="text-xs text-gray-400">đ/{ing.unit}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500 shrink-0">Ghi chú:</span>
+                          <input type="text" value={editing.note} onChange={e => setEditing({ ...editing, note: e.target.value })}
+                            className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-orange-400" placeholder="VD: 49k/900g" />
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={savePrice} disabled={saving}
+                            className="flex items-center gap-1 bg-orange-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-orange-600 disabled:opacity-50">
+                            <Check size={12} />{saving ? 'Lưu...' : 'Lưu'}
+                          </button>
+                          <button onClick={() => setEditing(null)} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100">Hủy</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-1 flex items-center gap-2 flex-wrap">
+                        {ing.price_per_unit > 0
+                          ? <span className="text-xs text-gray-500">{fmtCost(ing.price_per_unit)}/{ing.unit}</span>
+                          : <span className="text-xs text-gray-400 italic">Chưa có giá</span>}
+                        {ing.price_note && <span className="text-xs text-gray-400 bg-white px-2 py-0.5 rounded-full border border-gray-200">{ing.price_note}</span>}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                    <p className={`text-sm font-bold ${ing.ingredient_cost > 0 ? 'text-red-500' : 'text-gray-300'}`}>
+                      {ing.ingredient_cost > 0 ? fmtCost(Math.round(ing.ingredient_cost)) : '—'}
+                    </p>
+                    {!isEditing && (
+                      <button onClick={() => setEditing({ material_id: ing.material_id, value: ing.price_per_unit > 0 ? String(ing.price_per_unit) : '', note: ing.price_note })}
+                        className="text-gray-300 hover:text-orange-400 transition-colors"><Pencil size={13} /></button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        {ingredients.length > 0 && (
+          <div className="border-t border-gray-100 px-5 py-4 flex items-center justify-between">
+            <span className="text-sm text-gray-500 font-medium">Tổng cost/ly</span>
+            <span className="text-lg font-bold text-red-500">{fmtCost(Math.round(totalCost))}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+interface SeedResult { recipe: string; product_name?: string; status: string; linked?: number }
+
+function CostTab() {
+  const [products, setProducts] = useState<CostProduct[]>([])
+  const [categories, setCategories] = useState<CostCategory[]>([])
+  const [activeTab, setActiveTab] = useState<string>('')
+  const [selected, setSelected] = useState<CostProduct | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [seeding, setSeeding] = useState(false)
+  const [seedResult, setSeedResult] = useState<SeedResult[] | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const r = await fetch('/api/cost')
+    const d = await r.json()
+    const cats: CostCategory[] = d.categories || []
+    const prods: CostProduct[] = d.products || []
+    setCategories(cats)
+    setProducts(prods)
+    if (cats.length > 0 && !activeTab) setActiveTab(cats[0].slug)
+    setLoading(false)
+  }, [activeTab])
+
+  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleSeed() {
+    setSeeding(true)
+    setSeedResult(null)
+    const r = await fetch('/api/cost/seed', { method: 'POST' })
+    const d = await r.json()
+    if (d.success) { setSeedResult(d.recipe_results || []); await load() }
+    else alert('Lỗi: ' + d.error)
+    setSeeding(false)
+  }
+
+  async function handleUpdate() {
+    const r = await fetch('/api/cost')
+    const d = await r.json()
+    setProducts(d.products || [])
+    if (selected) {
+      const updated = (d.products || []).find((p: CostProduct) => p.id === selected.id)
+      if (updated) setSelected(updated)
+    }
+  }
+
+  const tabProducts = products.filter(p => p.category_slug === activeTab)
+
+  return (
+    <div>
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <p className="text-sm text-gray-500">Giá vốn & lợi nhuận theo sản phẩm</p>
+        <button onClick={handleSeed} disabled={seeding}
+          className="shrink-0 flex items-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white text-xs font-semibold px-3 py-2 rounded-xl transition-colors">
+          <Download size={14} />{seeding ? 'Đang nhập...' : 'Nhập dữ liệu'}
+        </button>
+      </div>
+
+      {seedResult && (
+        <div className="mb-5 bg-white border border-gray-200 rounded-2xl p-4 text-xs space-y-1.5">
+          <p className="font-bold text-gray-700 mb-2">Kết quả nhập dữ liệu:</p>
+          {seedResult.map((r, i) => (
+            <div key={i} className="flex items-center gap-2">
+              {r.status === 'ok' ? (
+                <><span className="text-green-500 font-bold">✓</span><span className="text-gray-700">{r.recipe}</span><span className="text-gray-400">→ <strong>{r.product_name}</strong> ({r.linked} nguyên liệu)</span></>
+              ) : (
+                <><span className="text-amber-500 font-bold">!</span><span className="text-gray-500">{r.recipe}</span><span className="text-amber-600">— Không tìm thấy, cần gắn thủ công trong tab Tồn Kho → Công thức SP</span></>
+              )}
+            </div>
+          ))}
+          <button onClick={() => setSeedResult(null)} className="mt-2 text-gray-400 hover:text-gray-600 text-xs underline">Đóng</button>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex gap-2 mb-6">{[1, 2, 3].map(i => <div key={i} className="h-9 w-24 bg-gray-200 rounded-full animate-pulse" />)}</div>
+      ) : (
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
+          {categories.map(cat => (
+            <button key={cat.slug} onClick={() => setActiveTab(cat.slug)}
+              className={`shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+                activeTab === cat.slug ? 'bg-orange-500 text-white shadow-sm' : 'bg-white text-gray-500 border border-gray-200 hover:border-orange-300 hover:text-orange-600'
+              }`}>{cat.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{[1, 2, 3, 4].map(i => <div key={i} className="h-36 bg-gray-200 rounded-2xl animate-pulse" />)}</div>
+      ) : tabProducts.length === 0 ? (
+        <div className="text-center py-16 text-gray-400"><p className="text-4xl mb-3">🍵</p><p>Không có sản phẩm nào</p></div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {tabProducts.map(p => <CostProductCard key={p.id} product={p} onClick={() => setSelected(p)} />)}
+        </div>
+      )}
+
+      {selected && <CostDetailModal product={selected} onClose={() => setSelected(null)} onUpdate={handleUpdate} />}
+    </div>
+  )
+}
+
+
+// ─── Billing Tab ───────────────────────────────────────────
+interface QuotaInfo {
+  plan: string; daily_limit: number; orders_used_today: number
+  orders_remaining: number; reset_date: string
+  expires_at: string | null; payments: BillingPayment[]
+}
+interface BillingPayment {
+  id: number; amount: number; package_type: string; package_days: number
+  new_daily_limit: number; status: string; created_at: string; expires_at: string | null
+}
+interface PaymentInfo {
+  payment_id: number; transfer_code: string; amount: number
+  bank_code: string; account_number: string; account_name: string; qr_url: string
+}
+
+const PACKAGES = [
+  { key: 'daily_100',   label: 'Gói Ngày',   price: 29000,  daily_limit: 100, days: 1,  description: '100 đơn/ngày · 1 ngày',   highlight: false },
+  { key: 'monthly_200', label: 'Cơ Bản',      price: 199000, daily_limit: 200, days: 30, description: '200 đơn/ngày · 30 ngày',  highlight: true  },
+  { key: 'monthly_500', label: 'Tiêu Chuẩn',  price: 399000, daily_limit: 500, days: 30, description: '500 đơn/ngày · 30 ngày',  highlight: false },
+]
+
+function fmtMoney(n: number) { return new Intl.NumberFormat('vi-VN').format(n) + 'đ' }
+function fmtDate(s: string) { return new Date(s).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) }
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  function copy() { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }
+  return (
+    <button onClick={copy} className="ml-2 text-orange-500 hover:text-orange-700 transition-colors">
+      {copied ? <CheckCircle size={15} /> : <Copy size={15} />}
+    </button>
+  )
+}
+
+function PaymentModal({ info, onClose, onSuccess }: { info: PaymentInfo; onClose: () => void; onSuccess: () => void }) {
+  const [confirmed, setConfirmed] = useState(false)
+  const pollRef = useRef<NodeJS.Timeout | null>(null)
+  const attemptsRef = useRef(0)
+  const MAX_ATTEMPTS = 120
+
+  const checkPayment = useCallback(async () => {
+    attemptsRef.current++
+    if (attemptsRef.current > MAX_ATTEMPTS) { if (pollRef.current) clearInterval(pollRef.current); return }
+    try {
+      const res = await fetch('/api/quota')
+      const data = await res.json()
+      const found = data.payments?.find((p: BillingPayment) => p.id === info.payment_id && p.status === 'completed')
+      if (found) { if (pollRef.current) clearInterval(pollRef.current); setConfirmed(true); setTimeout(onSuccess, 1500) }
+    } catch { /* ignore */ }
+  }, [info.payment_id, onSuccess])
+
+  useEffect(() => {
+    pollRef.current = setInterval(checkPayment, 5000)
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+  }, [checkPayment])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
+          <h3 className="font-bold text-gray-800">Thanh toán chuyển khoản</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
+        </div>
+        <div className="p-5 space-y-4">
+          {confirmed ? (
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <CheckCircle size={48} className="text-green-500" />
+              <p className="font-semibold text-green-700 text-lg">Thanh toán thành công!</p>
+              <p className="text-sm text-gray-500">Gói đã được kích hoạt tự động.</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={info.qr_url} alt="QR thanh toán" className="w-48 h-48 rounded-xl border border-gray-200" />
+              </div>
+              <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Ngân hàng</span>
+                  <span className="font-semibold text-gray-800">{info.bank_code}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Số tài khoản</span>
+                  <span className="font-semibold text-gray-800 flex items-center">{info.account_number}<CopyButton text={info.account_number} /></span>
+                </div>
+                {info.account_name && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Chủ tài khoản</span>
+                    <span className="font-semibold text-gray-800">{info.account_name}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Số tiền</span>
+                  <span className="font-bold text-orange-600 flex items-center">{fmtMoney(info.amount)}<CopyButton text={String(info.amount)} /></span>
+                </div>
+                <div className="flex justify-between items-center pt-1 border-t border-gray-200">
+                  <span className="text-gray-500">Nội dung CK</span>
+                  <span className="font-bold text-orange-600 tracking-wide flex items-center">{info.transfer_code}<CopyButton text={info.transfer_code} /></span>
+                </div>
+              </div>
+              <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800">
+                <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                Nhập <strong>đúng nội dung chuyển khoản</strong> để hệ thống tự động kích hoạt gói.
+              </div>
+              <div className="flex items-center justify-center gap-2 text-sm text-gray-500 pt-1">
+                <Loader2 size={16} className="animate-spin text-orange-400" />
+                Đang chờ xác nhận thanh toán...
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function BillingTab() {
+  const [quota, setQuota] = useState<QuotaInfo | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [buyingKey, setBuyingKey] = useState<string | null>(null)
+  const [buyError, setBuyError] = useState('')
+  const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null)
+
+  const fetchQuota = useCallback(() => {
+    fetch('/api/quota').then(r => r.json()).then(d => setQuota(d)).finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => { fetchQuota() }, [fetchQuota])
+
+  async function handleBuy(packageKey: string) {
+    setBuyingKey(packageKey); setBuyError('')
+    try {
+      const res = await fetch('/api/payments/sepay', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ package_key: packageKey }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setBuyError(data.error || 'Không thể tạo thanh toán'); return }
+      setPaymentInfo(data)
+    } catch { setBuyError('Lỗi kết nối, vui lòng thử lại') }
+    finally { setBuyingKey(null) }
+  }
+
+  function handlePaymentSuccess() { setPaymentInfo(null); setLoading(true); fetchQuota() }
+
+  if (loading) return <div className="flex items-center justify-center h-48"><div className="animate-spin w-8 h-8 border-4 border-orange-400 border-t-transparent rounded-full" /></div>
+  if (!quota) return null
+
+  const usedPct = Math.min(100, Math.round((quota.orders_used_today / quota.daily_limit) * 100))
+  const isOwner = quota.plan === 'owner'
+
+  return (
+    <>
+      {paymentInfo && <PaymentModal info={paymentInfo} onClose={() => setPaymentInfo(null)} onSuccess={handlePaymentSuccess} />}
+
+      <div className="space-y-6 max-w-3xl">
+        {/* Trạng thái hiện tại */}
+        <div className="card p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Gói hiện tại</p>
+              <p className="text-xl font-bold text-orange-600">
+                {isOwner ? 'Chủ hệ thống (Không giới hạn)' : quota.plan === 'free' ? 'Miễn phí' : 'Trả phí'}
+              </p>
+            </div>
+            {quota.expires_at && (
+              <div className="text-right">
+                <p className="text-xs text-gray-400">Hết hạn</p>
+                <p className="text-sm font-semibold text-gray-700">{fmtDate(quota.expires_at)}</p>
+              </div>
+            )}
+          </div>
+          {!isOwner && (
+            <>
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600">Đơn hôm nay</span>
+                  <span className="font-semibold">{quota.orders_used_today} / {quota.daily_limit}<span className="text-gray-400 font-normal ml-1">(còn {quota.orders_remaining})</span></span>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-2.5">
+                  <div className={`h-2.5 rounded-full transition-all ${usedPct >= 90 ? 'bg-red-500' : usedPct >= 70 ? 'bg-orange-400' : 'bg-green-500'}`} style={{ width: `${usedPct}%` }} />
+                </div>
+              </div>
+              {quota.orders_remaining === 0 && (
+                <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">
+                  <AlertCircle size={16} />Đã hết hạn mức hôm nay. Nâng cấp để tạo thêm đơn.
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Gói nâng cấp */}
+        {!isOwner && (
+          <div className="space-y-3">
+            <h2 className="font-semibold text-gray-700 flex items-center gap-2"><Zap size={18} className="text-orange-500" /> Nâng cấp gói</h2>
+            {buyError && (
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">
+                <AlertCircle size={16} />{buyError}
+              </div>
+            )}
+            <div className="grid gap-3 sm:grid-cols-3">
+              {PACKAGES.map(pkg => {
+                const isBuying = buyingKey === pkg.key
+                return (
+                  <div key={pkg.key} className={`card p-4 flex flex-col gap-3 relative ${pkg.highlight ? 'ring-2 ring-orange-400' : ''}`}>
+                    {pkg.highlight && <span className="absolute -top-2.5 left-4 bg-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">Phổ biến</span>}
+                    <div>
+                      <p className="font-bold text-gray-800">{pkg.label}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{pkg.description}</p>
+                    </div>
+                    <p className="text-2xl font-bold text-orange-600">{fmtMoney(pkg.price)}</p>
+                    <button onClick={() => handleBuy(pkg.key)} disabled={!!buyingKey}
+                      className={`w-full py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60 ${
+                        pkg.highlight ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'border border-orange-400 text-orange-600 hover:bg-orange-50'
+                      }`}>
+                      {isBuying ? <><Loader2 size={14} className="animate-spin" /> Đang xử lý...</> : 'Mua ngay'}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+            <p className="text-xs text-gray-400 text-center">Chuyển khoản ngân hàng · Kích hoạt tự động sau khi thanh toán thành công</p>
+          </div>
+        )}
+
+        {/* Lịch sử thanh toán */}
+        <div className="space-y-3">
+          <h2 className="font-semibold text-gray-700 flex items-center gap-2"><CreditCard size={18} className="text-gray-500" /> Lịch sử thanh toán</h2>
+          {quota.payments.length === 0 ? (
+            <div className="card p-6 text-center text-gray-400 text-sm">Chưa có giao dịch nào</div>
+          ) : (
+            <div className="card divide-y divide-gray-50">
+              {quota.payments.map(p => (
+                <div key={p.id} className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    {p.status === 'completed' ? <CheckCircle size={18} className="text-green-500 shrink-0" />
+                      : p.status === 'pending' ? <Clock size={18} className="text-orange-400 shrink-0" />
+                      : <AlertCircle size={18} className="text-red-400 shrink-0" />}
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">
+                        {p.package_type === 'daily' ? `Gói ngày · ${p.package_days} ngày` : `Gói tháng · ${p.package_days} ngày`}{' · '}{p.new_daily_limit} đơn/ngày
+                      </p>
+                      <p className="text-xs text-gray-400">{fmtDate(p.created_at)}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-gray-800">{fmtMoney(p.amount)}</p>
+                    <p className={`text-xs ${p.status === 'completed' ? 'text-green-600' : p.status === 'pending' ? 'text-orange-500' : 'text-red-500'}`}>
+                      {p.status === 'completed' ? 'Thành công' : p.status === 'pending' ? 'Đang xử lý' : 'Thất bại'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+
 // ─── Main Page ────────────────────────────────────────────
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'products', label: 'Sản Phẩm', icon: Package },
@@ -2019,6 +2776,8 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'recipes', label: 'Công Thức', icon: ChefHat },
   { id: 'inventory', label: 'Tồn Kho', icon: Boxes },
   { id: 'stores', label: 'Cửa Hàng', icon: Store },
+  { id: 'cost', label: 'Chi Phí', icon: TrendingDown },
+  { id: 'billing', label: 'Gói Dùng', icon: CreditCard },
 ]
 
 export default function QuanLyPage() {
@@ -2035,24 +2794,24 @@ export default function QuanLyPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Quản Lý Hệ Thống</h1>
+      <div className="mb-4 md:mb-6">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-800">Quản Lý Hệ Thống</h1>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-6 border-b border-gray-200">
+      {/* Tabs — scrollable on mobile, horizontal bar on desktop */}
+      <div className="flex gap-0.5 mb-5 md:mb-6 border-b border-gray-200 overflow-x-auto scrollbar-none -mx-4 px-4 md:mx-0 md:px-0">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`flex items-center gap-2 px-5 py-3 font-medium text-sm transition-all border-b-2 -mb-px ${
+            className={`shrink-0 flex flex-col md:flex-row items-center gap-1 md:gap-2 px-3 md:px-5 pt-2 pb-2.5 md:py-3 font-medium text-[10px] md:text-sm transition-all border-b-2 -mb-px min-w-[52px] md:min-w-0 ${
               tab === id
                 ? 'border-orange-500 text-orange-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            <Icon size={16} />
-            {label}
+            <Icon size={17} />
+            <span className="leading-tight text-center whitespace-nowrap">{label}</span>
           </button>
         ))}
       </div>
@@ -2067,6 +2826,8 @@ export default function QuanLyPage() {
       {tab === 'recipes' && <RecipesTab />}
       {tab === 'inventory' && <InventoryTab />}
       {tab === 'stores' && <StoresTab />}
+      {tab === 'cost' && <CostTab />}
+      {tab === 'billing' && <BillingTab />}
     </div>
   )
 }
