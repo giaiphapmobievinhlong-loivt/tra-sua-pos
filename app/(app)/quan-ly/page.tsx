@@ -1011,9 +1011,10 @@ function SettingsTab() {
 
 // ─── Recipes Tab ──────────────────────────────────────────
 function RecipesTab() {
-  const [activeSection, setActiveSection] = useState<'nen' | 'ly' | 'topping' | 'cafe'>('nen')
+  const [activeSection, setActiveSection] = useState<'nen' | 'ly' | 'topping' | 'cafe' | 'matcha'>('cafe')
   const [activeRecipe, setActiveRecipe] = useState(0)
   const [activeCafe, setActiveCafe] = useState(0)
+  const [activeMatcha, setActiveMatcha] = useState(0)
 
   const congThucCafe = [
     {
@@ -1089,6 +1090,21 @@ function RecipesTab() {
       ]
     },
     {
+      title: 'Phindi Hạnh Nhân', emoji: '🌰', price: '25K', color: 'border-amber-400',
+      headerBg: 'bg-amber-700', tagBg: 'bg-amber-100 text-amber-800',
+      note: 'Đánh cốt cà phê tạo bông rồi rưới lên trên, thêm thạch cà phê',
+      items: [
+        { label: 'Sữa đặc', value: '10ml' },
+        { label: 'Siro hạt phỉ', value: '20ml' },
+        { label: 'Sữa tươi', value: '80ml' },
+        { label: 'Cốt cà phê đánh bông', value: '30ml' },
+        { label: 'Thạch cà phê', value: '1 vá' },
+      ]
+    },
+  ]
+
+  const congThucMatcha = [
+    {
       title: 'Matcha Latte', emoji: '🍵', price: '22K / 28K', color: 'border-green-300',
       headerBg: 'bg-green-600', tagBg: 'bg-green-100 text-green-700',
       note: 'Đánh bột matcha với 50ml nước nóng ~80°C thật nhuyễn rồi rưới vào ly sữa có đá',
@@ -1120,18 +1136,6 @@ function RecipesTab() {
         { label: 'Sữa đặc (S/L)', value: '30ml / 50ml' },
         { label: 'Bột cacao (S/L)', value: '10–15gr / 15–20gr' },
         { label: 'Nước nóng', value: '50ml — đánh tan bột trước' },
-      ]
-    },
-    {
-      title: 'Phindi Hạnh Nhân', emoji: '🌰', price: '25K', color: 'border-amber-400',
-      headerBg: 'bg-amber-700', tagBg: 'bg-amber-100 text-amber-800',
-      note: 'Đánh cốt cà phê tạo bông rồi rưới lên trên, thêm thạch cà phê',
-      items: [
-        { label: 'Sữa đặc', value: '10ml' },
-        { label: 'Siro hạt phỉ', value: '20ml' },
-        { label: 'Sữa tươi', value: '80ml' },
-        { label: 'Cốt cà phê đánh bông', value: '30ml' },
-        { label: 'Thạch cà phê', value: '1 vá' },
       ]
     },
   ]
@@ -1249,13 +1253,99 @@ function RecipesTab() {
     <div className="space-y-4">
       {/* Section toggle */}
       <div className="flex gap-2 bg-gray-100 p-1 rounded-xl flex-wrap">
-        {([['nen','🫖 Nền Trà'],['ly','🧋 Từng Ly'],['topping','🍮 Topping'],['cafe','☕ Cafe']] as const).map(([id, label]) => (
+        {([['cafe','☕ Cafe'],['matcha','🍵 Matcha'],['nen','🫖 Nền Trà'],['ly','🧋 Trà'],['topping','🍮 Topping']] as const).map(([id, label]) => (
           <button key={id} onClick={() => setActiveSection(id)}
             className={`flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeSection === id ? 'bg-white shadow text-orange-600' : 'text-gray-500'}`}>
             {label}
           </button>
         ))}
       </div>
+      
+      {activeSection === 'cafe' && (
+        <div className="space-y-3">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {congThucCafe.map((r, i) => (
+              <button key={i} onClick={() => setActiveCafe(i)}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap ${
+                  activeCafe === i ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-200'
+                }`}>
+                {r.emoji} {r.title}
+              </button>
+            ))}
+          </div>
+          {(() => {
+            const r = congThucCafe[activeCafe]
+            return (
+              <div className={`border-2 rounded-2xl overflow-hidden ${r.color}`}>
+                <div className={`${r.headerBg} px-4 py-3 flex items-center gap-2`}>
+                  <span className="text-2xl">{r.emoji}</span>
+                  <h3 className="font-bold text-white text-base">{r.title}</h3>
+                </div>
+                <div className="p-4 space-y-2">
+                  {r.items.map((item, i) => (
+                    <div key={i} className="bg-white rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
+                      <span className="w-7 h-7 rounded-full bg-orange-100 text-orange-600 font-black text-sm flex items-center justify-center shrink-0">{i + 1}</span>
+                      <div className="flex-1 flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-gray-700">{item.label}</p>
+                        <p className="text-sm text-orange-600 font-bold text-right">{item.value}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {r.note && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-2.5 flex items-start gap-2">
+                      <span className="text-orange-500 shrink-0">📝</span>
+                      <p className="text-sm text-orange-700 font-medium">{r.note}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
+
+      {activeSection === 'matcha' && (
+        <div className="space-y-3">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {congThucMatcha.map((r, i) => (
+              <button key={i} onClick={() => setActiveMatcha(i)}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap ${
+                  activeMatcha === i ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-200'
+                }`}>
+                {r.emoji} {r.title}
+              </button>
+            ))}
+          </div>
+          {(() => {
+            const r = congThucMatcha[activeMatcha]
+            return (
+              <div className={`border-2 rounded-2xl overflow-hidden ${r.color}`}>
+                <div className={`${r.headerBg} px-4 py-3 flex items-center gap-2`}>
+                  <span className="text-2xl">{r.emoji}</span>
+                  <h3 className="font-bold text-white text-base">{r.title}</h3>
+                </div>
+                <div className="p-4 space-y-2">
+                  {r.items.map((item, i) => (
+                    <div key={i} className="bg-white rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
+                      <span className="w-7 h-7 rounded-full bg-orange-100 text-orange-600 font-black text-sm flex items-center justify-center shrink-0">{i + 1}</span>
+                      <div className="flex-1 flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-gray-700">{item.label}</p>
+                        <p className="text-sm text-orange-600 font-bold text-right">{item.value}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {r.note && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-2.5 flex items-start gap-2">
+                      <span className="text-orange-500 shrink-0">📝</span>
+                      <p className="text-sm text-orange-700 font-medium">{r.note}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
 
       {activeSection === 'nen' && (
         <div className="space-y-4">
@@ -1539,48 +1629,7 @@ function RecipesTab() {
         </div>
       )}
 
-      {activeSection === 'cafe' && (
-        <div className="space-y-3">
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {congThucCafe.map((r, i) => (
-              <button key={i} onClick={() => setActiveCafe(i)}
-                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap ${
-                  activeCafe === i ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-200'
-                }`}>
-                {r.emoji} {r.title}
-              </button>
-            ))}
-          </div>
-          {(() => {
-            const r = congThucCafe[activeCafe]
-            return (
-              <div className={`border-2 rounded-2xl overflow-hidden ${r.color}`}>
-                <div className={`${r.headerBg} px-4 py-3 flex items-center gap-2`}>
-                  <span className="text-2xl">{r.emoji}</span>
-                  <h3 className="font-bold text-white text-base">{r.title}</h3>
-                </div>
-                <div className="p-4 space-y-2">
-                  {r.items.map((item, i) => (
-                    <div key={i} className="bg-white rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
-                      <span className="w-7 h-7 rounded-full bg-orange-100 text-orange-600 font-black text-sm flex items-center justify-center shrink-0">{i + 1}</span>
-                      <div className="flex-1 flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-gray-700">{item.label}</p>
-                        <p className="text-sm text-orange-600 font-bold text-right">{item.value}</p>
-                      </div>
-                    </div>
-                  ))}
-                  {r.note && (
-                    <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-2.5 flex items-start gap-2">
-                      <span className="text-orange-500 shrink-0">📝</span>
-                      <p className="text-sm text-orange-700 font-medium">{r.note}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          })()}
-        </div>
-      )}
+
     </div>
   )
 }
@@ -2767,13 +2816,13 @@ function BillingTab() {
 
 // ─── Main Page ────────────────────────────────────────────
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
+  { id: 'recipes', label: 'Công Thức', icon: ChefHat },
   { id: 'products', label: 'Sản Phẩm', icon: Package },
   { id: 'categories', label: 'Danh Mục', icon: Layers },
   { id: 'users', label: 'Nhân Viên', icon: Users },
   { id: 'discounts', label: 'Khuyến Mãi', icon: Tag },
   { id: 'qr', label: 'QR Bàn', icon: QrCode },
   { id: 'settings', label: 'Cài Đặt', icon: ToggleRight },
-  { id: 'recipes', label: 'Công Thức', icon: ChefHat },
   { id: 'inventory', label: 'Tồn Kho', icon: Boxes },
   { id: 'stores', label: 'Cửa Hàng', icon: Store },
   { id: 'cost', label: 'Chi Phí', icon: TrendingDown },
@@ -2781,7 +2830,7 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
 ]
 
 export default function QuanLyPage() {
-  const [tab, setTab] = useState<Tab>('products')
+  const [tab, setTab] = useState<Tab>('recipes')
   const [categories, setCategories] = useState<Category[]>([])
 
   const fetchCategories = useCallback(async () => {
@@ -2817,13 +2866,13 @@ export default function QuanLyPage() {
       </div>
 
       {/* Tab content */}
+      {tab === 'recipes' && <RecipesTab />}
       {tab === 'products' && <ProductsTab categories={categories} />}
       {tab === 'categories' && <CategoriesTab onCategoriesChange={fetchCategories} />}
       {tab === 'users' && <UsersTab />}
       {tab === 'discounts' && <DiscountsTab />}
       {tab === 'qr' && <QrTab />}
       {tab === 'settings' && <SettingsTab />}
-      {tab === 'recipes' && <RecipesTab />}
       {tab === 'inventory' && <InventoryTab />}
       {tab === 'stores' && <StoresTab />}
       {tab === 'cost' && <CostTab />}
