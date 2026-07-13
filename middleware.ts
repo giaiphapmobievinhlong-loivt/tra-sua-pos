@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jwtVerify } from 'jose'
 
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('JWT_SECRET chưa được cấu hình trong môi trường production')
+}
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'fallback-secret-change-in-production'
+  process.env.JWT_SECRET || 'dev-only-insecure-secret'
 )
 
 // Role → allowed page prefixes

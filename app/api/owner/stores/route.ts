@@ -7,8 +7,8 @@ export async function GET(req: NextRequest) {
   const user = await getUserFromRequest(req)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Chỉ chủ hệ thống (store_id = 1) mới được xem
-  if (user.store_id !== 1) {
+  // Chỉ admin của cửa hàng chủ hệ thống (store_id = 1) mới được xem
+  if (user.store_id !== 1 || user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

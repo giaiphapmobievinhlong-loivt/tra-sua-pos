@@ -70,9 +70,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const {
-      store_id, items, total_amount, discount_amount, discount_name, note,
+      store_id, items, discount_amount, discount_name, note,
       table_number, customer_name, customer_phone,
-      delivery_address, delivery_fee, order_type
+      delivery_address, order_type
     } = body
 
     if (!items?.length) return NextResponse.json({ error: 'Đơn hàng trống' }, { status: 400 })
@@ -85,13 +85,36 @@ export async function POST(req: NextRequest) {
     }
 
     const orderCode = generateOrderCode()
-    const finalTotal = Number(total_amount) + Number(delivery_fee || 0)
-
-    const productIds = items.map((i: { product_id: number }) => i.product_id)
-    const prods = await sql`SELECT id, name FROM products WHERE id = ANY(${productIds}) AND store_id = ${storeId}`
-    const nameMap = Object.fromEntries(prods.map((p) => [p.id, p.name]))
 
     type Item = { product_id: number; quantity: number; unit_price: number; item_note?: string }
+
+    const productIds = (items as Item[]).map((i) => i.product_id)
+    const prods = await sql`SELECT id, name, price FROM products WHERE id = ANY(${productIds}) AND store_id = ${storeId} AND is_active IS NOT FALSE`
+    const nameMap = Object.fromEntries(prods.map((p) => [p.id, p.name]))
+    const priceMap = Object.fromEntries(prods.map((p) => [p.id, Number(p.price)]))
+
+    // Đơn khách tự đặt: bắt buộc mọi món phải khớp sản phẩm thật trong menu,
+    // giá luôn lấy từ DB — không tin unit_price/total_amount client gửi lên
+    if (productIds.some((id: number) => priceMap[id] == null)) {
+      return NextResponse.json({ error: 'Có món không hợp lệ trong đơn, vui lòng đặt lại' }, { status: 400 })
+    }
+
+    const resolvedItems = (items as Item[]).map((item) => {
+      const quantity = Math.max(1, Math.floor(Number(item.quantity) || 0))
+      const unitPrice = priceMap[item.product_id]
+      return { ...item, quantity, unit_price: unitPrice, subtotal: unitPrice * quantity }
+    })
+
+    const subtotal = resolvedItems.reduce((sum, i) => sum + i.subtotal, 0)
+    const safeDiscount = Math.min(Math.max(Number(discount_amount) || 0, 0), subtotal)
+
+    let deliveryFee = 0
+    if (order_type === 'delivery') {
+      const [feeRow] = await sql`SELECT value FROM settings WHERE store_id = ${storeId} AND key = 'delivery_fee'`
+      deliveryFee = feeRow ? Number(feeRow.value) : 15000
+    }
+
+    const finalTotal = Math.max(0, subtotal - safeDiscount) + deliveryFee
 
     const rows = await sql`
       INSERT INTO orders (
@@ -99,23 +122,29 @@ export async function POST(req: NextRequest) {
         customer_paid, change_amount, note, status, table_number, is_paid, pay_method,
         source, customer_name, customer_phone, delivery_address, delivery_fee, order_type
       ) VALUES (
-        ${storeId}, ${orderCode}, NULL, ${finalTotal}, ${discount_amount ?? 0}, ${discount_name || ''},
+        ${storeId}, ${orderCode}, NULL, ${finalTotal}, ${safeDiscount}, ${discount_name || ''},
         0, 0, ${note || ''}, 'pending',
         ${order_type === 'delivery' ? null : (table_number ?? null)},
         false, 'transfer',
         'web', ${customer_name || ''}, ${customer_phone || ''},
-        ${delivery_address || ''}, ${delivery_fee || 0}, ${order_type || 'dine_in'}
+        ${delivery_address || ''}, ${deliveryFee}, ${order_type || 'dine_in'}
       ) RETURNING *
     `
     const order = rows[0]
 
-    await Promise.all(items.map((item: Item) =>
-      sql`
-        INSERT INTO order_items (store_id, order_id, product_id, product_name, quantity, unit_price, subtotal, item_note)
-        VALUES (${storeId}, ${order.id}, ${item.product_id}, ${nameMap[item.product_id] || 'Unknown'},
-                ${item.quantity}, ${item.unit_price}, ${item.quantity * item.unit_price}, ${item.item_note || ''})
-      `
-    ))
+    try {
+      await sql.transaction(resolvedItems.map((item) =>
+        sql`
+          INSERT INTO order_items (store_id, order_id, product_id, product_name, quantity, unit_price, subtotal, item_note)
+          VALUES (${storeId}, ${order.id}, ${item.product_id}, ${nameMap[item.product_id] || 'Unknown'},
+                  ${item.quantity}, ${item.unit_price}, ${item.subtotal}, ${item.item_note || ''})
+        `
+      ))
+    } catch (itemError) {
+      // Không để lại đơn hàng rỗng nếu ghi món thất bại
+      await sql`DELETE FROM orders WHERE id = ${order.id} AND store_id = ${storeId}`
+      throw itemError
+    }
 
     const orderItems = await sql`SELECT * FROM order_items WHERE order_id = ${order.id}`
     return NextResponse.json({ success: true, order_code: orderCode, order: { ...order, items: orderItems } })

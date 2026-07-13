@@ -6,13 +6,15 @@ export async function POST(req: NextRequest) {
   try {
     // Sepay xác thực bằng header: Authorization: Apikey <key>
     const apiKey = process.env.SEPAY_API_KEY
-    if (apiKey) {
-      const authHeader = req.headers.get('authorization') || ''
-      const sentKey = authHeader.replace(/^Apikey\s+/i, '').trim()
-      if (sentKey !== apiKey) {
-        console.error('[webhook] Invalid Sepay API key')
-        return NextResponse.json({ success: false }, { status: 401 })
-      }
+    if (!apiKey) {
+      console.error('[webhook] SEPAY_API_KEY chưa cấu hình — từ chối toàn bộ webhook')
+      return NextResponse.json({ success: false }, { status: 503 })
+    }
+    const authHeader = req.headers.get('authorization') || ''
+    const sentKey = authHeader.replace(/^Apikey\s+/i, '').trim()
+    if (sentKey !== apiKey) {
+      console.error('[webhook] Invalid Sepay API key')
+      return NextResponse.json({ success: false }, { status: 401 })
     }
 
     const body = await req.json()

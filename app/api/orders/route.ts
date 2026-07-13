@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 })
 
     const body = await req.json()
-    const { items, total_amount, discount_amount, discount_name, customer_paid, change_amount, note, table_number, status, is_paid, pay_method } = body
+    const { items, discount_amount, discount_name, customer_paid, change_amount, note, table_number, status, is_paid, pay_method } = body
 
     if (!items?.length) return NextResponse.json({ error: "Đơn hàng trống" }, { status: 400 })
 
@@ -108,27 +108,50 @@ export async function POST(req: NextRequest) {
 
     const orderCode = generateOrderCode()
 
-    const productIds = items.map((i: { product_id: number }) => i.product_id)
-    const prods = await sql`SELECT id, name FROM products WHERE id = ANY(${productIds}) AND store_id = ${user.store_id}`
-    const nameMap = Object.fromEntries(prods.map((p) => [p.id, p.name]))
+    type Item = { product_id: number | null; quantity: number; unit_price: number; item_note?: string }
 
-    type Item = { product_id: number; quantity: number; unit_price: number; item_note?: string }
+    const productIds = items.map((i: Item) => i.product_id).filter((id: number | null) => id != null)
+    const prods = productIds.length
+      ? await sql`SELECT id, name, price FROM products WHERE id = ANY(${productIds}) AND store_id = ${user.store_id}`
+      : []
+    const nameMap = Object.fromEntries(prods.map((p) => [p.id, p.name]))
+    const priceMap = Object.fromEntries(prods.map((p) => [p.id, Number(p.price)]))
+
+    // Giá lấy từ DB cho món có product_id (không tin unit_price client gửi lên) —
+    // món tự thêm (product_id = null, vd. topping ngoài menu) vẫn dùng giá staff nhập tay
+    const resolvedItems = (items as Item[]).map((item) => {
+      const quantity = Math.max(1, Math.floor(Number(item.quantity) || 0))
+      const unitPrice = item.product_id != null && priceMap[item.product_id] != null
+        ? priceMap[item.product_id]
+        : Math.max(0, Number(item.unit_price) || 0)
+      return { ...item, quantity, unit_price: unitPrice, subtotal: unitPrice * quantity }
+    })
+
+    const subtotal = resolvedItems.reduce((sum, i) => sum + i.subtotal, 0)
+    const safeDiscount = Math.min(Math.max(Number(discount_amount) || 0, 0), subtotal)
+    const finalTotal = Math.max(0, subtotal - safeDiscount)
 
     const rows = await sql`
       INSERT INTO orders (store_id, order_code, user_id, total_amount, discount_amount, discount_name, customer_paid, change_amount, note, status, table_number, is_paid, pay_method)
-      VALUES (${user.store_id}, ${orderCode}, ${user.id}, ${total_amount}, ${discount_amount ?? 0}, ${discount_name || ''}, ${customer_paid ?? 0}, ${change_amount ?? 0},
+      VALUES (${user.store_id}, ${orderCode}, ${user.id}, ${finalTotal}, ${safeDiscount}, ${discount_name || ''}, ${customer_paid ?? 0}, ${change_amount ?? 0},
               ${note || ""}, ${status || "pending"}, ${table_number ?? null}, ${is_paid ?? false}, ${pay_method ?? null})
       RETURNING *
     `
     const order = rows[0]
 
-    await Promise.all(items.map((item: Item) =>
-      sql`
-        INSERT INTO order_items (store_id, order_id, product_id, product_name, quantity, unit_price, subtotal, item_note)
-        VALUES (${user.store_id}, ${order.id}, ${item.product_id}, ${nameMap[item.product_id] || 'Unknown'},
-                ${item.quantity}, ${item.unit_price}, ${item.quantity * item.unit_price}, ${item.item_note || ''})
-      `
-    ))
+    try {
+      await sql.transaction(resolvedItems.map((item) =>
+        sql`
+          INSERT INTO order_items (store_id, order_id, product_id, product_name, quantity, unit_price, subtotal, item_note)
+          VALUES (${user.store_id}, ${order.id}, ${item.product_id}, ${item.product_id != null ? (nameMap[item.product_id] || 'Unknown') : 'Món thêm'},
+                  ${item.quantity}, ${item.unit_price}, ${item.subtotal}, ${item.item_note || ''})
+        `
+      ))
+    } catch (itemError) {
+      // Không để lại đơn hàng rỗng nếu ghi món thất bại
+      await sql`DELETE FROM orders WHERE id = ${order.id} AND store_id = ${user.store_id}`
+      throw itemError
+    }
 
     // Tăng quota đã dùng
     await sql`UPDATE quotas SET orders_used_today = orders_used_today + 1 WHERE store_id = ${user.store_id}`
