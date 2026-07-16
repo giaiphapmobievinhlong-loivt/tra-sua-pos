@@ -137,10 +137,9 @@ function DailyReport() {
           {/* Stats */}
           <div className="grid grid-cols-2 gap-3">
             <StatCard label="Doanh thu" value={`${fmt(data.total_revenue)}đ`} icon={DollarSign} color="bg-orange-50" />
-            <StatCard label="Số đơn" value={String(data.order_count)} sub="đơn hàng" icon={ShoppingCart} color="bg-blue-50" />
+            <StatCard label="Tổng ly bán" value={`${data.total_cups ?? 0}`} sub="ly" icon={ShoppingCart} color="bg-yellow-50" />
             <StatCard label="Trung bình/đơn" value={`${fmt(data.avg_order)}đ`} icon={BarChart2} color="bg-purple-50" />
             <StatCard label="Lợi nhuận" value={`${fmt(data.estimated_profit)}đ`} sub="Gồm thu chi ngoài" icon={TrendingUp} color="bg-green-50" />
-            <StatCard label="Tổng ly bán" value={`${data.total_cups ?? 0}`} sub="ly" icon={ShoppingCart} color="bg-yellow-50" />
           </div>
 
           {/* Top products */}
@@ -299,10 +298,9 @@ function MonthlyReport() {
           {/* Summary cards */}
           <div className="grid grid-cols-2 gap-3">
             <StatCard label="Doanh thu tháng" value={`${fmt(data.total_revenue)}đ`} icon={DollarSign} color="bg-orange-50" />
-            <StatCard label="Tổng đơn" value={String(data.order_count)} sub="đơn hàng" icon={ShoppingCart} color="bg-blue-50" />
+            <StatCard label="Tổng ly bán" value={`${data.total_cups ?? 0}`} sub="ly" icon={ShoppingCart} color="bg-yellow-50" />
             <StatCard label="Trung bình/đơn" value={`${fmt(data.avg_order)}đ`} icon={BarChart2} color="bg-purple-50" />
             <StatCard label="Lợi nhuận" value={`${fmt(data.estimated_profit)}đ`} sub="Gồm thu chi ngoài" icon={TrendingUp} color="bg-green-50" />
-            <StatCard label="Tổng ly bán" value={`${data.total_cups ?? 0}`} sub="ly" icon={ShoppingCart} color="bg-yellow-50" />
           </div>
 
           {/* Thu / Chi summary */}
@@ -617,14 +615,13 @@ function RangeReport() {
           {/* Stats grid */}
           <div className="grid grid-cols-2 gap-3">
             <StatCard label="Doanh thu" value={`${fmt(data.total_revenue)}đ`} icon={DollarSign} color="bg-orange-50" />
-            <StatCard label="Số đơn" value={String(data.order_count)} sub="đơn hoàn thành" icon={ShoppingCart} color="bg-blue-50" />
-            <StatCard label="Trung bình/đơn" value={`${fmt(data.avg_order)}đ`} icon={BarChart2} color="bg-purple-50" />
             <StatCard label="Tổng ly bán" value={String(data.total_cups)} sub="ly" icon={ShoppingCart} color="bg-yellow-50" />
-            <StatCard label="Thu ngoài" value={`${fmt(data.total_thu)}đ`} icon={TrendingUp} color="bg-green-50" />
-            <StatCard label="Chi ngoài" value={`${fmt(data.total_chi)}đ`} icon={TrendingUp} color="bg-red-50" />
             <div className="col-span-2">
               <StatCard label="Lợi nhuận ước tính" value={`${fmt(data.estimated_profit)}đ`} sub="Doanh thu + Thu - Chi" icon={TrendingUp} color="bg-emerald-50" />
             </div>
+            <StatCard label="Trung bình/đơn" value={`${fmt(data.avg_order)}đ`} icon={BarChart2} color="bg-purple-50" />
+            <StatCard label="Thu ngoài" value={`${fmt(data.total_thu)}đ`} icon={TrendingUp} color="bg-green-50" />
+            <StatCard label="Chi ngoài" value={`${fmt(data.total_chi)}đ`} icon={TrendingUp} color="bg-red-50" />
           </div>
 
           {/* Phương thức thanh toán */}

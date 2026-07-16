@@ -1,6 +1,11 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
+// fetchOptions: no-store — Next.js patches global fetch() và sẽ cache các request
+// HTTP mà Neon driver gửi đi nếu không tắt tường minh, khiến báo cáo/đơn hàng
+// mới tạo không hiện ra ngay dù route đã đánh dấu force-dynamic.
+const sql = neon(process.env.DATABASE_URL!, {
+  fetchOptions: { cache: 'no-store' },
+})
 
 export default sql
 
